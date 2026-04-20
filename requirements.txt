@@ -1,0 +1,7 @@
+Flask
+requests
+qdrant-client
+python-dotenv
+pdfminer.six
+pypdf
+feedparser
