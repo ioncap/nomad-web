@@ -1,7 +1,7 @@
 
 # N.O.M.A.D Web
 
-**N.O.M.A.D** (Networked Offline Machine Augmented Dialogue) is a fully local, privacy-first AI assistant web interface. It combines retrieval‑augmented generation (RAG), a powerful agent framework, voice interaction, and a collaborative **Canvas** where the LLM can read and edit documents in real time. The system runs entirely on your own hardware – a Raspberry Pi 5, a desktop PC, and an XPS13 laptop – with no cloud dependencies.
+**N.O.M.A.D** (Networked Offline Machine Augmented Dialogue) is a fully local, privacy-first AI assistant web interface. It combines retrieval‑augmented generation (RAG), a powerful agent framework, voice interaction, and a collaborative **Canvas** where the LLM can read and edit documents in real time. This system now runs entirely on my own hardware – a Raspberry Pi 5, a desktop PC, and an XPS13 laptop – with no cloud dependencies.
 
 > **Note:** This is a **hobby project** and not intended for production use. It was built as a personal experiment in local AI and home automation. The web interface and AI workflows are built around the knowledge base system originally created by **[ProjectNomad.us](https://projectnomad.us)**.
 
