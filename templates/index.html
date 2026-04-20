@@ -961,54 +961,6 @@ function loadSuggestedQuestions(){fetch("/suggested-questions").then(function(r)
 function init(){initCanvasResize();initCanvasDrop();renderTabs();loadActiveTab();checkH();setInterval(checkH,30000);G.inp.focus();document.getElementById("iw").classList.add("mode-rag");loadSuggestedQuestions();}
 init();
 </script>
-<!-- Knowledge Base Browser Overlay -->
-<div class="kb-overlay" id="kbPanel">
-  <div class="kb-inner">
-    <div class="kb-header">
-      <div class="kb-title">Knowledge Base Browser</div>
-      <div style="display:flex; gap:8px">
-        <button class="kb-close" onclick="kbExport()">⬇️ Export</button>
-        <button class="kb-close" onclick="kbPurgeConfirm()">🗑️ Purge</button>
-        <button class="kb-close" onclick="toggleKbBrowser()">✕ close</button>
-      </div>
-    </div>
-    
-    <div class="kb-stats" id="kbStats">
-      <span>📊 Loading stats...</span>
-    </div>
-    
-    <div class="kb-toolbar">
-      <input type="text" id="kbSearchInput" placeholder="Search in titles and content..." />
-      <button onclick="kbSearch()">🔍 Search</button>
-      <button onclick="kbResetSearch()">⟲ Reset</button>
-      <span style="flex:1"></span>
-      <span id="kbPaginationInfo"></span>
-    </div>
-    
-    <div class="kb-document-list" id="kbDocumentList">
-      <div class="kb-empty">Loading documents...</div>
-    </div>
-    
-    <div class="kb-pagination" id="kbPagination"></div>
-  </div>
-</div>
-
-<!-- Document detail modal (hidden by default) -->
-<div class="kb-modal" id="kbModal">
-  <div class="kb-modal-content">
-    <div class="kb-modal-header">
-      <span id="kbModalTitle">Document Details</span>
-      <button class="kb-modal-close" onclick="closeKbModal()">✕</button>
-    </div>
-    <div class="kb-modal-body">
-      <pre id="kbModalContent"></pre>
-    </div>
-    <div class="kb-modal-footer">
-      <button onclick="kbDeleteDocument()" style="color: var(--err); border-color: var(--err);">🗑️ Delete</button>
-      <button onclick="closeKbModal()">Close</button>
-    </div>
-  </div>
-</div>
-<script src="{{ url_for('static', filename='js/kb-browser.js') }}"></script>
+<script src="/static/js/kb-browser.js"></script>
 </body>
 </html>
