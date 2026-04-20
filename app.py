@@ -33,7 +33,8 @@ from modules.llm import (
 )
 from modules.rag import validate_and_index
 from modules.agent import AGENT_SYSTEM, AGENT_TOOLS
-
+from modules.kb_manager import kb_bp
+app.register_blueprint(kb_bp)
 app = Flask(__name__)
 os.makedirs(os.path.expanduser("~/nomad-uploads"), exist_ok=True)
 
