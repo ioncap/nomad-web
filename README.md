@@ -7,7 +7,7 @@
 
 ### Why Three Machines?
 The setup is spread across three separate systems simply because **I had them lying around**. Running the full stack – LLM inference, vector database, embedding server, and web server – on a single device (especially a Raspberry Pi) would be **too heavy** and result in a sluggish experience. Distributing the load across a Pi 5, a desktop, and an XPS13 laptop keeps everything smooth and responsive while making good use of existing hardware.  
-The project is **uploaded here so I can easily share it with friends** who want to try out a similar local AI assistant.
+The project is **uploaded here so I can easily share it with friends**.
 
 <img width="918" height="613" alt="image" src="https://github.com/user-attachments/assets/03f20a57-7e29-4415-ba80-e3914226d3a6" />
 <img width="1095" height="785" alt="image" src="https://github.com/user-attachments/assets/1fce8845-cf73-425a-89b5-b4d2c596cd44" />
@@ -55,61 +55,63 @@ All inter‑service communication is over HTTP (with SSH fallback for XPS13 stat
    ```bash
    git clone https://github.com/yourusername/nomad-web.git
    cd nomad-web
-
+   ```
     Create and activate a virtual environment
-    bash
-
+    ```bash
     python3 -m venv venv
     source venv/bin/activate
-
+    ```
     Install Python dependencies
-    bash
-
+    ```bash
     pip install -r requirements.txt
-
+    ```
     Requirements include: Flask, requests, qdrant-client, python-dotenv, pdfminer.six (optional for PDF extraction)
 
     Set up environment variables
     Copy the example file and adjust to match your network setup:
-    bash
+    ```bash
 
     cp .env.example .env
     nano .env
-
+    ```
     See Configuration for details.
-
+```
     Prepare auxiliary services
-
-        Start llama-server on the desktop.
-
-        Ensure Qdrant is running and the collection nomad_knowledge_base exists.
-
-        Run the embedding server on XPS13 (Ollama).
-
-        (Optional) Start the stats servers on each machine.
-
-⚙️ Configuration
-
+    Start llama-server on the desktop.
+    Ensure Qdrant is running and the collection nomad_knowledge_base exists.
+    Run the embedding server on XPS13 (Ollama).
+    (Optional) Start the stats servers on each machine. Configuration
+```
 All settings are managed via a .env file. Here are the most important variables:
+
 Variable	Default	Description
+
 NOMAD_HOST	nomad.home	Hostname of your desktop (LLM/Qdrant)
+
 EMBED_URL	http://192.168.2.20:11434	Embedding server (XPS13)
+
 LLAMA_URL	http://nomad.home:8081	llama.cpp inference endpoint
+
 QDRANT_HOST	nomad.home	Qdrant host
+
 QDRANT_PORT	6333	Qdrant port
+
 WHISPER_URL	http://nomad.home:8082	Whisper STT endpoint
+
 VOICE_URL	http://192.168.2.20:8085	Voice server for TTS/chat
+
 SCORE_THRESHOLD	0.15	Minimum similarity for RAG results
+
 MAX_HISTORY	20	Max conversation history kept
 
 Refer to .env.example for the complete list.
 🏃 Running the Application
 
 Start the Flask development server (on the Raspberry Pi):
-bash
+```bash
 
 python nomad-web.py
-
+```
 The web interface will be available at http://raspberrypi.local:5000 (or your Pi's IP).
 
 For production use, consider running behind a reverse proxy like Nginx with SSL (e.g., using Let's Encrypt).
@@ -146,7 +148,7 @@ System Dashboard
 
 📁 Project Structure
 text
-
+```
 nomad-web/
 ├── nomad-web.py           # Main Flask application
 ├── .env.example           # Template for environment variables
@@ -154,7 +156,7 @@ nomad-web/
 ├── static/                # (Optional) Separate static assets
 ├── voice.html             # Standalone voice chat page
 └── README.md
-
+```
 🔧 Extending
 Adding a New Agent Tool
 
