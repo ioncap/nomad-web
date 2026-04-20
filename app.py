@@ -19,9 +19,10 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
 
 from config import (
-    COLLECTION, DOZZLE_URL, LLAMA_URL, MAX_HISTORY, MAX_CHUNK_LEN,
-    MAX_RESULTS, NOMAD_HOST, PIPER_BIN, PIPER_MODEL, QDRANT_HOST, QDRANT_PORT,
-    SCORE_THRESHOLD, STATS_URL, VOICE_URL, WHISPER_URL, XPS13_HOST,
+    COLLECTION, DOZZLE_URL, KB_CLEANER_DRY_RUN, KB_CLEANER_INTERVAL_HOURS,
+    LLAMA_URL, MAX_HISTORY, MAX_CHUNK_LEN, MAX_RESULTS, NOMAD_HOST, PIPER_BIN,
+    PIPER_MODEL, QDRANT_HOST, QDRANT_PORT, SCORE_THRESHOLD, STATS_URL,
+    VOICE_URL, WHISPER_URL, XPS13_HOST,
 )
 from modules.canvas import (
     PATCH_SYSTEM, build_canvas_context, canvas_edit_gen, canvas_new_gen,
@@ -35,11 +36,20 @@ from modules.llm import (
 )
 from modules.rag import validate_and_index
 from modules.agent import AGENT_SYSTEM, AGENT_TOOLS
+from modules.kb_cleaner import KBCleaner
 from modules.kb_manager import kb_bp
 
 app = Flask(__name__)
 app.register_blueprint(kb_bp)
 os.makedirs(os.path.expanduser("~/nomad-uploads"), exist_ok=True)
+
+# ── KB Cleaner (background thread) ───────────────────────────────────────────
+_kb_cleaner = KBCleaner(
+    client=QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT),
+    dry_run=KB_CLEANER_DRY_RUN,
+    interval_hours=KB_CLEANER_INTERVAL_HOURS,
+)
+_kb_cleaner.start()
 
 # ── Static pages ─────────────────────────────────────────────────────────────
 _html_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
@@ -551,6 +561,28 @@ def export_collection():
             })
 
         return jsonify(export_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/kb/clean", methods=["POST"])
+def kb_clean():
+    """Handmatig een KB-opschoonsessie starten.
+
+    Query params:
+        dry_run=true|false  – overschrijft de geconfigureerde waarde voor deze run.
+    """
+    try:
+        dry_run_param = request.args.get("dry_run")
+        original_dry_run = _kb_cleaner.dry_run
+        if dry_run_param is not None:
+            _kb_cleaner.dry_run = dry_run_param.lower() != "false"
+
+        stats = _kb_cleaner.clean()
+
+        # Restore original setting so the scheduled runs are unaffected.
+        _kb_cleaner.dry_run = original_dry_run
+        return jsonify(stats)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

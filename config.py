@@ -25,3 +25,7 @@ SCORE_THRESHOLD = float(os.getenv("SCORE_THRESHOLD", "0.15"))
 MAX_RESULTS     = int(os.getenv("MAX_RESULTS", "6"))
 MAX_CHUNK_LEN   = int(os.getenv("MAX_CHUNK_LEN", "500"))
 MAX_HISTORY     = int(os.getenv("MAX_HISTORY", "20"))
+
+# KB Cleaner
+KB_CLEANER_DRY_RUN        = os.getenv("KB_CLEANER_DRY_RUN", "true").lower() == "true"
+KB_CLEANER_INTERVAL_HOURS = int(os.getenv("KB_CLEANER_INTERVAL_HOURS", "24"))
