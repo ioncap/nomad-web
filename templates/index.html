@@ -94,7 +94,7 @@ header{padding:24px 0 16px;border-bottom:1px solid var(--border2);flex-shrink:0}
 .input-area{flex-shrink:0;padding:14px 0 20px;border-top:1px solid var(--border2)}
 .input-row{display:flex;align-items:flex-end;gap:10px}
 .iw{flex:1;display:flex;align-items:flex-end;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:8px 10px 8px 20px;transition:border-color var(--tr),box-shadow var(--tr)}.iw:focus-within{border-color:var(--accent2);box-shadow:0 0 0 3px var(--accentg)}.iw textarea{flex:1;background:none;border:none;outline:none;color:var(--t1);font-family:'Source Serif 4',serif;font-size:15px;line-height:1.6;resize:none;min-height:26px;max-height:140px;padding:6px 0}.iw textarea::placeholder{color:var(--t3);font-style:italic}.ib{flex-shrink:0;width:34px;height:34px;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--tr);background:transparent;color:var(--t3)}.ib:hover{color:var(--t2);background:var(--bg3)}.ib.send{width:46px;height:46px;border-radius:50%;background:var(--bg3);color:var(--t3);border:1px solid var(--border2);flex-shrink:0;transition:background var(--tr),color var(--tr),border-color var(--tr),transform var(--tr)}.ib.send:hover:not(:disabled){transform:scale(1.07)}.ib.send:disabled{opacity:.35;cursor:not-allowed}.ib.rec{color:#ff4444;animation:mp 1s ease-in-out infinite}@keyframes mp{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
-.hint{text-align:center;font-family:'DM Mono',monospace;font-size:9px;color:var(--t3);padding:0 0 8px;letter-spacing:.05em}.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;animation:fi .8s ease}.ei{font-family:'Instrument Serif',serif;font-size:42px;color:var(--border);margin-bottom:12px}.et{font-size:14px;color:var(--t3);max-width:340px;line-height:1.7}.exs{margin-top:20px;display:flex;flex-direction:column;gap:6px}.exb{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 16px;color:var(--t2);font-family:'Source Serif 4',serif;font-size:13px;cursor:pointer;transition:all var(--tr);text-align:left}.exb:hover{border-color:var(--accent2);color:var(--t1);background:var(--bg3)}
+.hint{text-align:center;font-family:'DM Mono',monospace;font-size:9px;color:var(--t3);padding:0 0 8px;letter-spacing:.05em}.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;animation:fi .8s ease}.ei{font-family:'Instrument Serif',serif;font-size:42px;color:var(--border);margin-bottom:12px}.et{font-size:14px;color:var(--t3);max-width:340px;line-height:1.7}.exs{margin-top:20px;display:flex;flex-direction:column;gap:6px}.exb{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 16px;color:var(--t2);font-family:'Source Serif 4',serif;font-size:13px;cursor:pointer;transition:all var(--tr);text-align:left}.exb:hover{border-color:var(--accent2);color:var(--t1);background:var(--bg3)}.exb-loading{pointer-events:none;min-height:36px;background:var(--bg3);border-color:var(--border2);animation:shimmer 1.6s ease-in-out infinite}@keyframes shimmer{0%,100%{opacity:.35}50%{opacity:.65}}.exb-ready{animation:fi .4s ease}
 .cv-drop-overlay{display:none;position:absolute;inset:0;background:rgba(74,158,106,0.15);border:2px dashed var(--cv-active);border-radius:var(--rs);z-index:20;align-items:center;justify-content:center;flex-direction:column;gap:8px;font-family:"DM Mono",monospace;font-size:13px;color:var(--cv-active);pointer-events:none}
 .cv-drop-overlay.active{display:flex}
 .cv-drop-icon{font-size:32px}
@@ -209,9 +209,9 @@ header{padding:24px 0 16px;border-bottom:1px solid var(--border2);flex-shrink:0}
           <div class="ei">&#10022;</div>
           <div class="et">Ask anything about your offline knowledge base, chat freely, or open the canvas to collaborate.</div>
           <div class="exs">
-            <button class="exb" onclick="askEx(this)">How do I create a list in Python?</button>
-            <button class="exb" onclick="askEx(this)">Explain Docker volumes</button>
-            <button class="exb" onclick="askEx(this)">How to set up SSH keys?</button>
+            <button class="exb exb-loading" onclick="askEx(this)"></button>
+            <button class="exb exb-loading" onclick="askEx(this)"></button>
+            <button class="exb exb-loading" onclick="askEx(this)"></button>
           </div>
         </div>
       </div>
@@ -713,7 +713,7 @@ function historyClear(){
   showToast("History cleared");
 }
 
-function loadSuggestedQuestions(){fetch("/suggested-questions").then(function(r){return r.json();}).then(function(d){var qs=d.questions||[];var btns=document.querySelectorAll(".exb");for(var i=0;i<btns.length&&i<qs.length;i++){btns[i].textContent=qs[i];}}).catch(function(){});}
+function loadSuggestedQuestions(){fetch("/suggested-questions").then(function(r){return r.json();}).then(function(d){var qs=d.questions||[];var btns=document.querySelectorAll(".exb");for(var i=0;i<btns.length&&i<qs.length;i++){btns[i].textContent=qs[i];btns[i].classList.remove("exb-loading");btns[i].classList.add("exb-ready");}}).catch(function(){var fb=["How do I create a list in Python?","Explain Docker volumes","How to set up SSH keys?"];var btns=document.querySelectorAll(".exb");for(var i=0;i<btns.length;i++){btns[i].textContent=fb[i]||"";btns[i].classList.remove("exb-loading");btns[i].classList.add("exb-ready");}});}
 function init(){initCanvasResize();initCanvasDrop();renderTabs();loadActiveTab();checkH();setInterval(checkH,30000);G.inp.focus();document.getElementById("iw").classList.add("mode-rag");loadSuggestedQuestions();}
 init();
 </script>
