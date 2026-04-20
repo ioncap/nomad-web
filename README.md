@@ -6,11 +6,14 @@
 > **Note:** This is a **hobby project** and not intended for production use. It was built as a personal experiment in local AI and home automation. The web interface and AI workflows are built around the knowledge base system originally created by **[ProjectNomad.us](https://projectnomad.us)**.
 
 ### Why Three Machines?
-The setup is spread across three separate systems simply because **I had them lying around**. Running the full stack – LLM inference, vector database, embedding server, and web server – on a single device (especially a Raspberry Pi) would be **too heavy** and result in a sluggish experience. Distributing the load across a Pi 5, a desktop, and an XPS13 laptop keeps everything smooth and responsive while making good use of existing hardware.  
+The setup is spread across three separate systems simply because **I had them lying around**. Running the full stack – LLM inference, vector database, embedding server, and web server – on a single device (especially a Raspberry Pi) would be **too heavy** and result in a sluggish experience. Distributing the load across a Pi 5, a desktop, and an XPS13 laptop keeps everything smooth and responsive while we are making good use of existing hardware.  
 The project is **uploaded here so I can easily share it with friends**.
 
 <img width="918" height="613" alt="image" src="https://github.com/user-attachments/assets/03f20a57-7e29-4415-ba80-e3914226d3a6" />
+
 <img width="1095" height="785" alt="image" src="https://github.com/user-attachments/assets/1fce8845-cf73-425a-89b5-b4d2c596cd44" />
+
+<img width="934" height="1360" alt="image" src="https://github.com/user-attachments/assets/3054bba7-eb9c-4acf-9c46-43e1d444b5f5" />
 
 ## ✨ Features
 
