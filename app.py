@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 
 import requests as req
 from flask import Flask, Response, jsonify, request
@@ -25,7 +26,7 @@ from modules.canvas import (
 from modules.embeddings import get_embedding
 from modules.helpers import HDRS, NO_ANS, get_pi_stats, sse
 from modules.llm import (
-    contextualize_question, stream_llm, stream_llm_canvas,
+    contextualize_question, helper_llm, stream_llm, stream_llm_canvas,
     stream_llm_with_canvas_detect,
 )
 from modules.rag import validate_and_index
@@ -157,6 +158,61 @@ def health():
     except Exception:
         pass
     return jsonify(s)
+
+
+_suggestions_cache: dict = {"questions": [], "ts": 0.0}
+_FALLBACK_QUESTIONS = [
+    "How do I create a list in Python?",
+    "Explain Docker volumes",
+    "How to set up SSH keys?",
+]
+
+@app.route("/suggested-questions")
+def suggested_questions():
+    import random
+    global _suggestions_cache
+    if time.time() - _suggestions_cache["ts"] < 3600 and _suggestions_cache["questions"]:
+        return jsonify({"questions": _suggestions_cache["questions"]})
+    try:
+        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+        points, _ = client.scroll(
+            collection_name=COLLECTION, limit=12,
+            with_payload=True, with_vectors=False,
+        )
+        if not points:
+            return jsonify({"questions": _FALLBACK_QUESTIONS})
+        random.shuffle(points)
+        snippets = []
+        for pt in points[:5]:
+            pl  = pt.payload or {}
+            txt = pl.get("content", pl.get("text", ""))
+            ttl = pl.get("article_title", "")
+            if txt:
+                snippets.append((ttl, txt[:400]))
+        if not snippets:
+            return jsonify({"questions": _FALLBACK_QUESTIONS})
+        prompt = "Based on these knowledge base excerpts, generate exactly 3 short, natural questions a user might ask. One question per line, no numbering, no bullets, no extra text.\n\n"
+        for ttl, txt in snippets[:3]:
+            prompt += (f"[{ttl}]\n" if ttl else "") + txt + "\n\n"
+        prompt += "3 questions:"
+        response = helper_llm(
+            [
+                {"role": "system", "content": "You generate concise example questions based on document content. Output only the questions, one per line."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=120,
+        )
+        questions = [
+            ln.strip().lstrip("•–-1234567890.) ")
+            for ln in response.splitlines() if ln.strip()
+        ]
+        questions = [q for q in questions if len(q) > 8][:3]
+        while len(questions) < 3:
+            questions.append(_FALLBACK_QUESTIONS[len(questions)])
+        _suggestions_cache = {"questions": questions, "ts": time.time()}
+        return jsonify({"questions": questions})
+    except Exception:
+        return jsonify({"questions": _FALLBACK_QUESTIONS})
 
 
 @app.route("/pi-stats")
