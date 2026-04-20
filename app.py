@@ -5,6 +5,7 @@ Entry point: Flask app + routes. Logic lives in modules/.
 """
 import base64
 import json
+import math
 import os
 import random
 import subprocess
@@ -15,6 +16,7 @@ import time
 import requests as req
 from flask import Flask, Response, jsonify, request
 from qdrant_client import QdrantClient
+from qdrant_client.http import models as qdrant_models
 
 from config import (
     COLLECTION, DOZZLE_URL, LLAMA_URL, MAX_HISTORY, MAX_CHUNK_LEN,
@@ -360,6 +362,195 @@ def extract_file():
         else:
             text = f.read().decode("utf-8", errors="replace")
             return jsonify({"text": text[:100000], "pages": 1, "truncated": len(text) > 100000})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Knowledge Base Browser (Management) routes ─────────────────────────────────
+
+def _get_qdrant_client():
+    return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+
+
+@app.route("/kb/stats")
+def kb_stats():
+    """Uitgebreide statistieken over de collectie."""
+    try:
+        client = _get_qdrant_client()
+        info = client.get_collection(COLLECTION)
+        points_count = client.count(COLLECTION).count
+        stats = {
+            "name": COLLECTION,
+            "points_count": points_count,
+            "status": info.status,
+            "vector_size": info.config.params.vectors.size,
+            "distance": str(info.config.params.vectors.distance),
+            "indexed_vectors_count": getattr(info, 'indexed_vectors_count', points_count)
+        }
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/kb/documents")
+def list_documents():
+    """Lijst van documenten met paginering en optionele zoekterm."""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 20))
+        query = request.args.get('q', '').strip()
+
+        client = _get_qdrant_client()
+        # Scroll door alle punten
+        all_points = []
+        offset = None
+        while True:
+            points, next_offset = client.scroll(
+                collection_name=COLLECTION,
+                limit=100,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False
+            )
+            all_points.extend(points)
+            if next_offset is None:
+                break
+            offset = next_offset
+
+        # Filter op zoekterm
+        if query:
+            query_lower = query.lower()
+            filtered = []
+            for p in all_points:
+                payload = p.payload or {}
+                title = payload.get('article_title', '').lower()
+                content = payload.get('content', '').lower()
+                if query_lower in title or query_lower in content:
+                    filtered.append(p)
+            all_points = filtered
+
+        total = len(all_points)
+        total_pages = math.ceil(total / per_page) if total > 0 else 1
+        start = (page - 1) * per_page
+        end = start + per_page
+        page_points = all_points[start:end]
+
+        documents = []
+        for p in page_points:
+            payload = p.payload or {}
+            content = payload.get('content', '')
+            documents.append({
+                "id": p.id,
+                "title": payload.get('article_title', 'Untitled'),
+                "content_preview": content[:200] + ('...' if len(content) > 200 else ''),
+                "source": payload.get('source', 'unknown'),
+                "created_at": payload.get('generated_at', ''),
+                "score": None
+            })
+
+        return jsonify({
+            "documents": documents,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "pages": total_pages
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/kb/documents/<doc_id>", methods=["GET"])
+def get_document(doc_id):
+    """Haal volledige inhoud van één document op."""
+    try:
+        client = _get_qdrant_client()
+        points = client.retrieve(
+            collection_name=COLLECTION,
+            ids=[doc_id],
+            with_payload=True,
+            with_vectors=False
+        )
+        if not points:
+            return jsonify({"error": "Document not found"}), 404
+        p = points[0]
+        payload = p.payload or {}
+        return jsonify({
+            "id": p.id,
+            "payload": payload,
+            "content": payload.get('content', ''),
+            "title": payload.get('article_title', 'Untitled')
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/kb/documents/<doc_id>", methods=["DELETE"])
+def delete_document(doc_id):
+    """Verwijder een document uit de collectie."""
+    try:
+        client = _get_qdrant_client()
+        client.delete(
+            collection_name=COLLECTION,
+            points_selector=qdrant_models.PointIdsList(
+                points=[doc_id]
+            )
+        )
+        return jsonify({"status": "deleted", "id": doc_id})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/kb/purge", methods=["POST"])
+def purge_collection():
+    """Verwijder alle documenten uit de collectie (bevestiging vereist)."""
+    try:
+        data = request.get_json()
+        if not data or data.get('confirm') != 'yes':
+            return jsonify({"error": "Confirmation required"}), 400
+
+        client = _get_qdrant_client()
+        # Hercreëer de collectie
+        client.delete_collection(COLLECTION)
+        client.create_collection(
+            collection_name=COLLECTION,
+            vectors_config=qdrant_models.VectorParams(
+                size=768,  # nomic-embed-text dimensie
+                distance=qdrant_models.Distance.COSINE
+            )
+        )
+        return jsonify({"status": "collection purged and recreated"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/kb/export", methods=["GET"])
+def export_collection():
+    """Exporteer alle documenten als JSON (download)."""
+    try:
+        client = _get_qdrant_client()
+        all_points = []
+        offset = None
+        while True:
+            points, next_offset = client.scroll(
+                collection_name=COLLECTION,
+                limit=100,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False
+            )
+            all_points.extend(points)
+            if next_offset is None:
+                break
+            offset = next_offset
+
+        export_data = []
+        for p in all_points:
+            export_data.append({
+                "id": p.id,
+                "payload": p.payload
+            })
+
+        return jsonify(export_data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
