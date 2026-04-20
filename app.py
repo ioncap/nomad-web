@@ -19,12 +19,15 @@ from config import (
     SCORE_THRESHOLD, STATS_URL, VOICE_URL, WHISPER_URL, XPS13_HOST,
 )
 from modules.canvas import (
-    PATCH_SYSTEM, build_canvas_context, canvas_edit_gen, detect_canvas_update,
-    is_canvas_edit_intent,
+    PATCH_SYSTEM, build_canvas_context, canvas_edit_gen, canvas_new_gen,
+    detect_canvas_update, is_canvas_edit_intent, is_code_create_intent,
 )
 from modules.embeddings import get_embedding
 from modules.helpers import HDRS, NO_ANS, get_pi_stats, sse
-from modules.llm import contextualize_question, stream_llm, stream_llm_canvas
+from modules.llm import (
+    contextualize_question, stream_llm, stream_llm_canvas,
+    stream_llm_with_canvas_detect,
+)
 from modules.rag import validate_and_index
 from modules.agent import AGENT_SYSTEM, AGENT_TOOLS
 
@@ -297,11 +300,13 @@ def chat_ep():
             yield from canvas_edit_gen(q, canvas)
             return
 
+        if not canvas and is_code_create_intent(q):
+            yield from canvas_new_gen(q)
+            return
+
         yield sse("search_status", message="Thinking...")
         sys_prompt = "You are N.O.M.A.D, a helpful AI assistant running locally. Be friendly, concise, thoughtful."
-        canvas_ctx = build_canvas_context(canvas)
-        if canvas_ctx:
-            sys_prompt += "\n\n" + canvas_ctx
+        sys_prompt += "\n\n" + build_canvas_context(canvas)
 
         msgs = [{"role": "system", "content": sys_prompt}]
         for m in h[-MAX_HISTORY:]:
@@ -315,7 +320,7 @@ def chat_ep():
         else:
             msgs.append({"role": "user", "content": q})
 
-        yield from stream_llm(msgs)
+        yield from stream_llm_with_canvas_detect(msgs)
         yield sse("done")
 
     return Response(gen(), content_type="text/event-stream", headers=HDRS)
@@ -334,6 +339,10 @@ def ask():
     def gen():
         if is_canvas_edit_intent(question, canvas):
             yield from canvas_edit_gen(question, canvas)
+            return
+
+        if not canvas and is_code_create_intent(question):
+            yield from canvas_new_gen(question)
             return
 
         search_question = question
@@ -378,28 +387,14 @@ def ask():
             "Synthesize from multiple sources when possible. Be accurate and clear. "
             "If the material doesn't cover the question, say what you can and indicate what's missing."
         )
-        canvas_ctx = build_canvas_context(canvas)
-        if canvas_ctx:
-            sys_prompt += "\n\n" + canvas_ctx
-
-        def collect_stream(generator):
-            collected = []
-            for chunk in generator:
-                yield chunk
-                try:
-                    d = json.loads(chunk.replace("data: ", "").strip())
-                    if d.get("type") == "token":
-                        collected.append(d["token"])
-                except Exception:
-                    pass
-            return collected
+        sys_prompt += "\n\n" + build_canvas_context(canvas)
 
         if not ctx:
             yield sse("token", token="No relevant documents found.\n\n---\n*Answering from my own knowledge...*\n\n")
             yield sse("fallback_start")
             msgs = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": question}]
             full = []
-            for chunk in stream_llm(msgs):
+            for chunk in stream_llm_with_canvas_detect(msgs):
                 yield chunk
                 try:
                     d = json.loads(chunk.replace("data: ", "").strip())
@@ -407,9 +402,6 @@ def ask():
                         full.append(d["token"])
                 except Exception:
                     pass
-            _, cv_content, cv_fn = detect_canvas_update("".join(full))
-            if cv_content:
-                yield sse("canvas_content", content=cv_content, filename=cv_fn)
             yield sse("fallback_done", question=question)
             yield sse("done")
             return
@@ -422,7 +414,7 @@ def ask():
         msgs.append({"role": "user", "content": "Reference material:\n" + context + "\n\nQuestion: " + question})
 
         collected = []
-        for chunk in stream_llm(msgs):
+        for chunk in stream_llm_with_canvas_detect(msgs):
             yield chunk
             try:
                 d = json.loads(chunk.replace("data: ", "").strip())
@@ -432,29 +424,21 @@ def ask():
                 pass
 
         full = "".join(collected)
-        _, cv_content, cv_fn = detect_canvas_update(full)
-        if cv_content:
-            yield sse("canvas_content", content=cv_content, filename=cv_fn)
 
         if any(p in full.lower() for p in NO_ANS):
             yield sse("token", token="\n\n---\n*Searching my own knowledge...*\n\n")
             yield sse("fallback_start")
+            fb_sys = (
+                "You are N.O.M.A.D. The knowledge base didn't have a good answer. "
+                "Answer using your own knowledge. Be concise and helpful.\n\n"
+                + build_canvas_context(None)
+            )
             fb_msgs = [
-                {"role": "system", "content": "You are N.O.M.A.D. The knowledge base didn't have a good answer. Answer using your own knowledge. Be concise and helpful."},
+                {"role": "system", "content": fb_sys},
                 {"role": "user", "content": question},
             ]
-            fb_full = []
-            for chunk in stream_llm(fb_msgs):
+            for chunk in stream_llm_with_canvas_detect(fb_msgs):
                 yield chunk
-                try:
-                    d = json.loads(chunk.replace("data: ", "").strip())
-                    if d.get("type") == "token":
-                        fb_full.append(d["token"])
-                except Exception:
-                    pass
-            _, cv_content2, cv_fn2 = detect_canvas_update("".join(fb_full))
-            if cv_content2:
-                yield sse("canvas_content", content=cv_content2, filename=cv_fn2)
             yield sse("fallback_done", question=question)
 
         yield sse("done")
@@ -550,6 +534,10 @@ def agent():
     def gen():
         if is_canvas_edit_intent(question, canvas):
             yield from canvas_edit_gen(question, canvas)
+            return
+
+        if not canvas and is_code_create_intent(question):
+            yield from canvas_new_gen(question)
             return
 
         sys_content = AGENT_SYSTEM
