@@ -13,26 +13,36 @@ from modules.helpers import get_pi_stats
 
 AGENT_SYSTEM = """You are N.O.M.A.D Agent — direct, efficient, sharp. Complete tasks with minimal words.
 
-Tools available (call with JSON on its own line):
-{"tool": "search_kb", "args": {"query": "..."}}
-{"tool": "search_web", "args": {"query": "..."}}
-{"tool": "run_command", "args": {"machine": "pi|desktop|xps13", "command": "..."}}
-{"tool": "save_note", "args": {"title": "...", "content": "..."}}
-{"tool": "network_scan", "args": {}}
-{"tool": "system_status", "args": {}}
-{"tool": "read_url", "args": {"url": "..."}}
-{"tool": "weather", "args": {"city": "..."}}
-{"tool": "dutch_temperatures", "args": {}}
-{"tool": "crypto", "args": {}}
-{"tool": "public_ip", "args": {}}
-{"tool": "wikipedia", "args": {"query": "..."}}
-{"tool": "exchange_rates", "args": {"base": "EUR"}}
-{"tool": "news_headlines", "args": {}}
+Call tools with JSON on its own line:
+{"tool": "search_kb",             "args": {"query": "..."}}
+{"tool": "search_web",            "args": {"query": "..."}}
+{"tool": "read_url",              "args": {"url": "..."}}
+{"tool": "run_command",           "args": {"machine": "pi|desktop|xps13", "command": "..."}}
+{"tool": "save_note",             "args": {"title": "...", "content": "..."}}
+{"tool": "system_status",         "args": {}}
+{"tool": "network_scan",          "args": {}}
+{"tool": "network_scan_advanced", "args": {"subnet": "192.168.2.0/24"}}
+{"tool": "port_scan",             "args": {"target": "...", "ports": "top1000"}}
+{"tool": "vuln_scan",             "args": {"target": "..."}}
+{"tool": "ping_host",             "args": {"host": "..."}}
+{"tool": "kb_cleaner_status",     "args": {}}
+{"tool": "kb_cleaner_run",        "args": {"dry_run": true}}
+{"tool": "docker_status",         "args": {"machine": "pi|desktop|xps13"}}
+{"tool": "weather",               "args": {"city": "..."}}
+{"tool": "dutch_temperatures",    "args": {}}
+{"tool": "crypto",                "args": {}}
+{"tool": "exchange_rates",        "args": {"base": "EUR"}}
+{"tool": "public_ip",             "args": {}}
+{"tool": "hacker_news",           "args": {}}
+{"tool": "news_headlines",        "args": {}}
+{"tool": "wikipedia",             "args": {"query": "..."}}
+{"tool": "list_tools",            "args": {}}
 
 Rules:
-- One short line explaining what you're doing, then the JSON tool call
-- After tool results: 2-3 sentence summary max
-- Chain tools when needed"""
+- One short line before each tool call explaining what you're doing
+- After results: 2-3 sentence summary max
+- Chain tools when needed
+- Use list_tools to answer "what can you do?" questions"""
 
 SAFE_COMMANDS = [
     "ls", "cat", "head", "tail", "grep", "find", "wc", "df", "free", "uptime",
@@ -312,19 +322,178 @@ def agent_news_headlines():
         return f"News error: {e}"
 
 
+# ── Network: advanced & vuln scans ────────────────────────────────────────────
+
+def agent_network_scan_advanced(subnet="192.168.2.0/24"):
+    import subprocess as sp
+    try:
+        result = sp.run(
+            f"nmap -sV --open {subnet} 2>/dev/null",
+            shell=True, capture_output=True, text=True, timeout=120,
+        )
+        output = result.stdout.strip()
+        return output[:4000] if output else "No open services found."
+    except Exception as e:
+        return f"Advanced scan error: {e}"
+
+
+def agent_port_scan(target, ports="top1000"):
+    import subprocess as sp
+    if not target:
+        return "Error: 'target' (IP or hostname) is required."
+    port_arg = "--top-ports 1000" if ports == "top1000" else f"-p {ports}"
+    try:
+        result = sp.run(
+            f"nmap -sV {port_arg} {target} 2>/dev/null",
+            shell=True, capture_output=True, text=True, timeout=60,
+        )
+        return (result.stdout.strip() or "No results.")[:3000]
+    except Exception as e:
+        return f"Port scan error: {e}"
+
+
+def agent_vuln_scan(target):
+    import subprocess as sp
+    if not target:
+        return "Error: 'target' (IP or hostname) is required."
+    try:
+        result = sp.run(
+            f"nmap --script=vuln {target} 2>/dev/null",
+            shell=True, capture_output=True, text=True, timeout=180,
+        )
+        output = result.stdout.strip()
+        return output[:4000] if output else "No vulnerabilities detected or nmap unavailable."
+    except Exception as e:
+        return f"Vuln scan error: {e}"
+
+
+def agent_ping_host(host):
+    import subprocess as sp
+    if not host:
+        return "Error: 'host' is required."
+    try:
+        result = sp.run(
+            f"ping -c 4 -W 2 {host}",
+            shell=True, capture_output=True, text=True, timeout=15,
+        )
+        return (result.stdout.strip() or result.stderr.strip() or "No output.")[:1000]
+    except Exception as e:
+        return f"Ping error: {e}"
+
+
+# ── KB Cleaner control ────────────────────────────────────────────────────────
+
+def agent_kb_cleaner_status():
+    from modules.kb_cleaner import get_instance
+    cleaner = get_instance()
+    if not cleaner:
+        return "KB Cleaner is not initialized."
+    return json.dumps({
+        "running":        cleaner.running,
+        "dry_run":        cleaner.dry_run,
+        "interval_hours": cleaner.interval // 3600,
+        "last_run_stats": cleaner.last_stats,
+    }, indent=2)
+
+
+def agent_kb_cleaner_run(dry_run=True):
+    from modules.kb_cleaner import get_instance
+    cleaner = get_instance()
+    if not cleaner:
+        return "KB Cleaner is not initialized."
+    original = cleaner.dry_run
+    cleaner.dry_run = dry_run
+    try:
+        stats = cleaner.clean()
+    finally:
+        cleaner.dry_run = original
+    return json.dumps(stats, indent=2)
+
+
+# ── Extra API & system tools ──────────────────────────────────────────────────
+
+def agent_hacker_news():
+    try:
+        top_ids = req.get(
+            "https://hacker-news.firebaseio.com/v1/topstories.json",
+            timeout=10,
+        ).json()[:10]
+        stories = []
+        for sid in top_ids:
+            s = req.get(
+                f"https://hacker-news.firebaseio.com/v1/item/{sid}.json",
+                timeout=5,
+            ).json()
+            url  = s.get("url") or f"https://news.ycombinator.com/item?id={sid}"
+            stories.append(f"  [{s.get('score', 0):>4}] {s.get('title', '?')}\n         {url}")
+        return "Hacker News Top 10:\n" + "\n".join(stories)
+    except Exception as e:
+        return f"HN error: {e}"
+
+
+def agent_docker_status(machine="pi"):
+    cmd = "docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'"
+    return agent_run_command(machine, cmd)
+
+
+# ── Self-documentation ────────────────────────────────────────────────────────
+
+_TOOL_CATALOG = [
+    ("search_kb",             '{"query": "..."}',                              "Semantic search in local Qdrant knowledge base"),
+    ("search_web",            '{"query": "..."}',                              "Search via Google News RSS"),
+    ("read_url",              '{"url": "..."}',                                "Fetch and extract text from any URL"),
+    ("run_command",           '{"machine": "pi|desktop|xps13", "command":"…"}', "Run a whitelisted shell command on a machine"),
+    ("save_note",             '{"title": "...", "content": "..."}',            "Save a note to the knowledge base"),
+    ("system_status",         "{}",                                             "Pi + desktop + Qdrant health overview"),
+    ("network_scan",          "{}",                                             "Fast ARP + ping sweep on 192.168.2.0/24"),
+    ("network_scan_advanced", '{"subnet": "192.168.2.0/24"}',                  "Nmap service version scan on subnet"),
+    ("port_scan",             '{"target": "...", "ports": "top1000"}',         "Detailed port + service scan on a specific host"),
+    ("vuln_scan",             '{"target": "..."}',                             "Nmap --script=vuln vulnerability scan on a host"),
+    ("ping_host",             '{"host": "..."}',                               "Ping a host (4 packets, 2s timeout)"),
+    ("kb_cleaner_status",     "{}",                                             "Background KB cleaner: last stats, dry_run flag, interval"),
+    ("kb_cleaner_run",        '{"dry_run": true}',                             "Trigger an immediate KB relevance clean pass"),
+    ("docker_status",         '{"machine": "pi|desktop|xps13"}',               "Show running Docker containers on a machine"),
+    ("weather",               '{"city": "..."}',                               "Current weather + 3-day forecast via Open-Meteo"),
+    ("dutch_temperatures",    "{}",                                             "Live temperatures for 8 Dutch cities"),
+    ("crypto",                "{}",                                             "BTC / ETH / SOL / ADA / DOGE in EUR + USD"),
+    ("exchange_rates",        '{"base": "EUR"}',                               "Exchange rates for major world currencies"),
+    ("public_ip",             "{}",                                             "Public IP address with geolocation"),
+    ("hacker_news",           "{}",                                             "Top 10 Hacker News stories with scores"),
+    ("news_headlines",        "{}",                                             "Latest BBC + Reuters headlines"),
+    ("wikipedia",             '{"query": "..."}',                              "Wikipedia article summary"),
+    ("list_tools",            "{}",                                             "This list — full catalog of available agent tools"),
+]
+
+
+def agent_list_tools():
+    lines = ["N.O.M.A.D Agent — available tools:\n"]
+    for name, args, desc in _TOOL_CATALOG:
+        lines.append(f"  {name:<22}  {args:<44}  {desc}")
+    return "\n".join(lines)
+
+
 AGENT_TOOLS = {
-    "search_kb":          lambda args: agent_search_kb(args.get("query", "")),
-    "search_web":         lambda args: agent_read_url(f"https://news.google.com/search?q={args.get('query', '').replace(' ', '+')}"),
-    "run_command":        lambda args: agent_run_command(args.get("machine", "pi"), args.get("command", "")),
-    "network_scan":       lambda args: agent_network_scan(),
-    "system_status":      lambda args: agent_system_status(),
-    "read_url":           lambda args: agent_read_url(args.get("url", "")),
-    "save_note":          lambda args: agent_save_note(args.get("title", "Untitled"), args.get("content", "")),
-    "weather":            lambda args: agent_weather(args.get("city", "Amsterdam")),
-    "dutch_temperatures": lambda args: agent_dutch_temperatures(),
-    "crypto":             lambda args: agent_crypto_prices(),
-    "public_ip":          lambda args: agent_public_ip(),
-    "wikipedia":          lambda args: agent_wikipedia(args.get("query", "")),
-    "exchange_rates":     lambda args: agent_exchange_rates(args.get("base", "EUR")),
-    "news_headlines":     lambda args: agent_news_headlines(),
+    "search_kb":             lambda args: agent_search_kb(args.get("query", "")),
+    "search_web":            lambda args: agent_read_url(f"https://news.google.com/search?q={args.get('query', '').replace(' ', '+')}"),
+    "run_command":           lambda args: agent_run_command(args.get("machine", "pi"), args.get("command", "")),
+    "network_scan":          lambda args: agent_network_scan(),
+    "network_scan_advanced": lambda args: agent_network_scan_advanced(args.get("subnet", "192.168.2.0/24")),
+    "port_scan":             lambda args: agent_port_scan(args.get("target", ""), args.get("ports", "top1000")),
+    "vuln_scan":             lambda args: agent_vuln_scan(args.get("target", "")),
+    "ping_host":             lambda args: agent_ping_host(args.get("host", "")),
+    "system_status":         lambda args: agent_system_status(),
+    "read_url":              lambda args: agent_read_url(args.get("url", "")),
+    "save_note":             lambda args: agent_save_note(args.get("title", "Untitled"), args.get("content", "")),
+    "kb_cleaner_status":     lambda args: agent_kb_cleaner_status(),
+    "kb_cleaner_run":        lambda args: agent_kb_cleaner_run(args.get("dry_run", True)),
+    "docker_status":         lambda args: agent_docker_status(args.get("machine", "pi")),
+    "weather":               lambda args: agent_weather(args.get("city", "Amsterdam")),
+    "dutch_temperatures":    lambda args: agent_dutch_temperatures(),
+    "crypto":                lambda args: agent_crypto_prices(),
+    "public_ip":             lambda args: agent_public_ip(),
+    "hacker_news":           lambda args: agent_hacker_news(),
+    "wikipedia":             lambda args: agent_wikipedia(args.get("query", "")),
+    "exchange_rates":        lambda args: agent_exchange_rates(args.get("base", "EUR")),
+    "news_headlines":        lambda args: agent_news_headlines(),
+    "list_tools":            lambda args: agent_list_tools(),
 }

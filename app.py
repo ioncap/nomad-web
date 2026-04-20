@@ -36,7 +36,7 @@ from modules.llm import (
 )
 from modules.rag import validate_and_index
 from modules.agent import AGENT_SYSTEM, AGENT_TOOLS
-from modules.kb_cleaner import KBCleaner
+from modules.kb_cleaner import KBCleaner, set_instance as _register_cleaner
 from modules.kb_manager import kb_bp
 
 app = Flask(__name__)
@@ -50,6 +50,7 @@ _kb_cleaner = KBCleaner(
     interval_hours=KB_CLEANER_INTERVAL_HOURS,
 )
 _kb_cleaner.start()
+_register_cleaner(_kb_cleaner)
 
 # ── Static pages ─────────────────────────────────────────────────────────────
 _html_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")

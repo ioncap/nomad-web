@@ -198,3 +198,17 @@ class KBCleaner:
             collection_name=COLLECTION,
             points_selector=qdrant_models.PointIdsList(points=ids),
         )
+
+
+# ── Module-level singleton so agent tools can reach the running cleaner ───────
+
+_instance: Optional["KBCleaner"] = None
+
+
+def set_instance(cleaner: "KBCleaner") -> None:
+    global _instance
+    _instance = cleaner
+
+
+def get_instance() -> Optional["KBCleaner"]:
+    return _instance
