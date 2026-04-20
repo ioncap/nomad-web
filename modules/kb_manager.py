@@ -1,11 +1,25 @@
 import json
+import os
 import time
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from config import QDRANT_HOST, QDRANT_PORT, COLLECTION
 
+_KB_BROWSER_HTML = None
+
+def _get_browser_html():
+    global _KB_BROWSER_HTML
+    if _KB_BROWSER_HTML is None:
+        path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'kb_browser.html')
+        _KB_BROWSER_HTML = open(os.path.normpath(path)).read()
+    return _KB_BROWSER_HTML
+
 kb_bp = Blueprint('kb_manager', __name__, url_prefix='/kb')
+
+@kb_bp.route('/browser')
+def kb_browser():
+    return Response(_get_browser_html(), content_type='text/html')
 
 def get_client():
     return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
