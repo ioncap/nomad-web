@@ -30,6 +30,20 @@ CANVAS_EDIT_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+CODE_CREATE_ACTION = re.compile(
+    r"\b(write|create|generate|build|implement|make|code|"
+    r"schrijf|maak|genereer|bouw|implementeer|codeer)\b",
+    re.IGNORECASE,
+)
+
+CODE_CREATE_SUBJECT = re.compile(
+    r"\b(function|class|method|script|program|snippet|algorithm|module|component|"
+    r"endpoint|handler|hook|query|schema|migration|test|api|"
+    r"functie|klasse|methode|programma|algoritme|component|"
+    r"endpoint|handler|query|schema|test)\b",
+    re.IGNORECASE,
+)
+
 
 def is_small_edit(question, canvas):
     if not canvas:
@@ -58,6 +72,11 @@ def is_canvas_edit_intent(question, canvas):
     return bool(CANVAS_EDIT_PATTERNS.search(question))
 
 
+def is_code_create_intent(question):
+    """Detect requests to write/generate new code when no canvas exists yet."""
+    return bool(CODE_CREATE_ACTION.search(question) and CODE_CREATE_SUBJECT.search(question))
+
+
 def guess_filename(canvas_content, hint=""):
     c = (hint + canvas_content).lower()
     if "def " in c or "import " in c or c.strip().startswith("#!"):
@@ -71,9 +90,19 @@ def guess_filename(canvas_content, hint=""):
     return "document.md"
 
 
+CODE_TO_CANVAS_INSTRUCTION = (
+    "IMPORTANT: Whenever your response would contain a code block (``` ... ```), "
+    "write that code to the canvas instead. "
+    "Use [CANVAS_UPDATE filename.ext] on its own line, followed by the complete code, "
+    "then [/CANVAS_UPDATE] on its own line. "
+    "Choose an appropriate extension (e.g. .py .js .ts .html .sh .sql .md). "
+    "Keep your chat reply text-only — no inline code blocks."
+)
+
+
 def build_canvas_context(canvas_content):
     if not canvas_content or not canvas_content.strip():
-        return None
+        return CODE_TO_CANVAS_INSTRUCTION
     return (
         "The user has a document open in the canvas:\n"
         "```\n"
@@ -84,7 +113,8 @@ def build_canvas_context(canvas_content):
         "respond with a brief acknowledgement in chat AND use [CANVAS_UPDATE filename.ext] on its own line, "
         "followed by the complete updated content, then [/CANVAS_UPDATE] on its own line. "
         "Choose an appropriate filename extension (e.g. .py .js .md .sh .html). "
-        "Do NOT include the [CANVAS_UPDATE] block in your chat response."
+        "Do NOT include the [CANVAS_UPDATE] block in your chat response. "
+        + CODE_TO_CANVAS_INSTRUCTION
     )
 
 
@@ -156,4 +186,24 @@ def canvas_edit_gen(question, canvas):
     yield from stream_llm_canvas(msgs, max_tokens=3000)
     yield sse("canvas_done", filename=fn)
     yield sse("token", token="\u2713 Canvas updated.")
+    yield sse("done")
+
+
+def canvas_new_gen(question):
+    """Generate brand-new code/content to canvas (no existing document)."""
+    fn = guess_filename("", question)
+    sys_prompt = (
+        "You are a precise code and content generator. "
+        "Output ONLY the complete code or document \u2014 no explanation, no preamble, "
+        "no markdown fences."
+    )
+    msgs = [
+        {"role": "system", "content": sys_prompt},
+        {"role": "user", "content": question},
+    ]
+    yield sse("search_status", message="Generating...")
+    yield sse("canvas_start", filename=fn)
+    yield from stream_llm_canvas(msgs, max_tokens=3000)
+    yield sse("canvas_done", filename=fn)
+    yield sse("token", token="\u2713 Generated to canvas.")
     yield sse("done")
