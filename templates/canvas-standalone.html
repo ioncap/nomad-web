@@ -61,6 +61,12 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'DM Mono'
 
 /* ── No-channel warning ── */
 .cs-no-bc{display:flex;align-items:center;justify-content:center;height:100%;color:var(--err);font-size:13px;padding:32px;text-align:center}
+
+/* ── Secondary toolbar ── */
+.cs-toolbar-bar{display:flex;align-items:center;gap:4px;padding:4px 14px;background:var(--bg2);border-bottom:1px solid var(--border2);flex-shrink:0;flex-wrap:wrap}
+.cs-stats{font-size:9px;color:var(--t3);margin-left:auto;letter-spacing:.03em}
+.cs-goal-bar{height:2px;background:var(--border);flex-shrink:0}
+.cs-goal-progress{height:100%;width:0%;background:var(--cv-active);transition:width 0.3s}
 </style>
 </head>
 <body>
@@ -81,6 +87,16 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'DM Mono'
       <button class="cs-btn icon-only" onclick="window.close()" title="Close tab"><i class="fa-solid fa-xmark"></i></button>
     </div>
   </div>
+  <div class="cs-toolbar-bar">
+    <button class="cs-btn" onclick="csFind()"><i class="fa-solid fa-magnifying-glass"></i> find</button>
+    <button class="cs-btn" onclick="csReplace()"><i class="fa-solid fa-right-left"></i> replace</button>
+    <button class="cs-btn" onclick="csBeautify()"><i class="fa-solid fa-wand-magic-sparkles"></i> beautify</button>
+    <button class="cs-btn" onclick="document.getElementById('csFileInput').click()"><i class="fa-solid fa-file-arrow-up"></i> load</button>
+    <input type="file" id="csFileInput" style="display:none" accept=".txt,.py,.js,.html,.css,.json,.md,.sh,.sql" onchange="csLoadFile(this)">
+    <button class="cs-btn" onclick="csSetGoal()" id="csGoalBtn" title="Set word goal"><i class="fa-solid fa-flag-checkered"></i> goal</button>
+    <span class="cs-stats" id="csStats">0 words</span>
+  </div>
+  <div class="cs-goal-bar"><div class="cs-goal-progress" id="csGoalProgress"></div></div>
   <div class="cs-body" id="csBody">
     <div class="cs-line-numbers" id="csLineNums">1</div>
     <textarea class="cs-ta" id="csTA" spellcheck="false" wrap="off"
