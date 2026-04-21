@@ -67,6 +67,19 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'DM Mono'
 .cs-stats{font-size:9px;color:var(--t3);margin-left:auto;letter-spacing:.03em}
 .cs-goal-bar{height:2px;background:var(--border);flex-shrink:0}
 .cs-goal-progress{height:100%;width:0%;background:var(--cv-active);transition:width 0.3s}
+
+/* ── Split view ── */
+.cs-split-container{display:flex;flex:1;overflow:hidden}
+.cs-edit-pane{flex:1;display:flex;overflow:hidden;background:var(--code)}
+.cs-prev-pane{display:none;flex:1;overflow-y:auto;padding:20px 24px;background:var(--bg);border-left:1px solid var(--border);font-size:14px;line-height:1.75;color:var(--t1)}
+.cs-split-container.split .cs-prev-pane{display:block}
+.cs-split-container.split .cs-edit-pane{flex:1}
+.cs-prev-pane h1,.cs-prev-pane h2,.cs-prev-pane h3{font-family:serif;margin:16px 0 8px;color:var(--t1);font-weight:600}
+.cs-prev-pane pre{background:var(--code);border:1px solid var(--border);border-radius:6px;padding:12px;margin:8px 0;overflow-x:auto}
+.cs-prev-pane pre code{font-family:'JetBrains Mono',monospace;font-size:12px;background:transparent;padding:0}
+.cs-prev-pane code{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--code);padding:2px 5px;border-radius:3px;color:var(--accent)}
+.cs-prev-pane p{margin-bottom:8px}.cs-prev-pane ul,.cs-prev-pane ol{padding-left:24px;margin-bottom:8px}
+.cs-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -83,6 +96,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'DM Mono'
     <div class="cs-toolbar">
       <button class="cs-btn" onclick="csUndo()" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i> undo</button>
       <button class="cs-btn" onclick="csRedo()" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i> redo</button>
+      <button class="cs-btn" id="csSplitBtn" onclick="csToggleSplit()" title="Toggle split preview"><i class="fa-solid fa-table-columns"></i> split</button>
       <button class="cs-btn" onclick="csDownload()" title="Download file"><i class="fa-solid fa-download"></i></button>
       <button class="cs-btn icon-only" onclick="window.close()" title="Close tab"><i class="fa-solid fa-xmark"></i></button>
     </div>
@@ -98,9 +112,14 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'DM Mono'
   </div>
   <div class="cs-goal-bar"><div class="cs-goal-progress" id="csGoalProgress"></div></div>
   <div class="cs-body" id="csBody">
-    <div class="cs-line-numbers" id="csLineNums">1</div>
-    <textarea class="cs-ta" id="csTA" spellcheck="false" wrap="off"
-      placeholder="Waiting for content from main tab…&#10;&#10;Open a canvas in the main N.O.M.A.D window to sync here."></textarea>
+    <div class="cs-split-container" id="csSplitContainer">
+      <div class="cs-edit-pane" id="csEditPane">
+        <div class="cs-line-numbers" id="csLineNums">1</div>
+        <textarea class="cs-ta" id="csTA" spellcheck="false" wrap="off"
+          placeholder="Waiting for content from main tab…&#10;&#10;Open a canvas in the main N.O.M.A.D window to sync here."></textarea>
+      </div>
+      <div class="cs-prev-pane" id="csPrev"></div>
+    </div>
   </div>
 </div>
 <div class="cs-writing" id="csWriting"><i class="fa-solid fa-pencil"></i> writing…</div>
