@@ -35,7 +35,7 @@ from modules.llm import (
     stream_llm_with_canvas_detect,
 )
 from modules.rag import validate_and_index
-from modules.agent import AGENT_SYSTEM, AGENT_TOOLS
+from modules.agent import AGENT_SYSTEM, AGENT_TOOLS, registry
 from modules.kb_cleaner import KBCleaner, set_instance as _register_cleaner
 from modules.kb_manager import kb_bp
 
@@ -566,6 +566,46 @@ def export_collection():
         return jsonify({"error": str(e)}), 500
 
 
+# ── Tool Config API ───────────────────────────────────────────────────────────
+
+@app.route("/api/tools", methods=["GET"])
+def api_tools_list():
+    """Geeft alle tools terug met naam, beschrijving, enabled-vlag en parameters."""
+    return jsonify(registry.list_tools())
+
+
+@app.route("/api/tools/<tool_name>", methods=["POST"])
+def api_tools_update(tool_name):
+    """Werkt de parameters van een tool bij (body: JSON met nieuwe waarden)."""
+    data = request.get_json() or {}
+    if registry.update_config(tool_name, params=data):
+        return jsonify({"status": "ok", "tool": tool_name})
+    return jsonify({"error": f"Tool '{tool_name}' not found"}), 404
+
+
+@app.route("/api/tools/<tool_name>/enable", methods=["POST"])
+def api_tools_enable(tool_name):
+    """Zet een tool aan of uit.  Body: {"enabled": true|false}"""
+    data = request.get_json() or {}
+    enabled = bool(data.get("enabled", True))
+    if registry.update_config(tool_name, enabled=enabled):
+        return jsonify({"status": "ok", "tool": tool_name, "enabled": enabled})
+    return jsonify({"error": f"Tool '{tool_name}' not found"}), 404
+
+
+@app.route("/api/tools/<tool_name>/docs", methods=["GET"])
+def api_tools_docs(tool_name):
+    """Geeft uitgebreide documentatie en voorbeeldprompt voor een tool."""
+    tool = registry.get_tool(tool_name)
+    if not tool:
+        return jsonify({"error": f"Tool '{tool_name}' not found"}), 404
+    return jsonify({
+        "name":    tool_name,
+        "help":    tool["help"],
+        "example": tool["example"],
+    })
+
+
 @app.route("/kb/clean", methods=["POST"])
 def kb_clean():
     """Handmatig een KB-opschoonsessie starten.
@@ -896,21 +936,25 @@ def agent():
                     if before:
                         yield sse("token", token=before + "\n\n")
 
-                    if tool_name in AGENT_TOOLS:
-                        yield sse("search_status", message=f"Running {tool_name}...")
-                        tool_result = AGENT_TOOLS[tool_name](tool_args)
-                        if len(tool_result) > 600 and tool_name in ("network_scan", "system_status", "search_kb", "news_headlines"):
-                            fn_map = {
-                                "network_scan":  "network_scan.md",
-                                "system_status": "system_status.md",
-                                "search_kb":     "search_results.md",
-                                "news_headlines": "headlines.md",
-                            }
-                            yield sse("canvas_content", content=tool_result, filename=fn_map.get(tool_name, "output.md"))
-                            yield sse("token", token="*Results written to canvas.*\n\n")
-                            tool_result = f"(written to canvas, {len(tool_result)} chars)"
-                    else:
-                        tool_result = f"Unknown tool: {tool_name}"
+                    yield sse("search_status", message=f"Running {tool_name}...")
+                    tool_result = registry.execute(tool_name, tool_args)
+                    _canvas_tools = {
+                        "network_scan":          "network_scan.md",
+                        "network_scan_advanced": "network_scan_advanced.md",
+                        "port_scan":             "port_scan.md",
+                        "vuln_scan":             "vuln_scan.md",
+                        "system_status":         "system_status.md",
+                        "search_kb":             "search_results.md",
+                        "news_headlines":        "headlines.md",
+                        "hacker_news":           "hacker_news.md",
+                        "kb_cleaner_run":        "kb_cleaner.md",
+                        "list_tools":            "tools.md",
+                    }
+                    if len(tool_result) > 600 and tool_name in _canvas_tools:
+                        yield sse("canvas_content", content=tool_result,
+                                  filename=_canvas_tools[tool_name])
+                        yield sse("token", token="*Results written to canvas.*\n\n")
+                        tool_result = f"(written to canvas, {len(tool_result)} chars)"
 
                     msgs.append({"role": "assistant", "content": response_text})
                     msgs.append({"role": "user",      "content": f"Tool result for {tool_name}:\n{tool_result}"})
