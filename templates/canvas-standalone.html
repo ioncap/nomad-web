@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Canvas · N.O.M.A.D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root,.dark{
+  --bg:#1a1a1e;--bg2:#222226;--bg3:#2a2a2f;
+  --border:#363640;--border2:#2e2e38;
+  --t1:#e8e6e3;--t2:#9d9b97;--t3:#6b6966;
+  --accent:#c49a6c;--accent2:#8b7355;--accentg:rgba(196,154,108,0.08);
+  --ok:#7d9e7a;--err:#c47070;--warn:#c4a86c;
+  --code:#1e1e22;--scroll:#363640;
+  --cv-active:#4a9e6a;--cv-activeg:rgba(74,158,106,0.12);
+  --r:12px;--rs:8px;--tr:0.2s cubic-bezier(0.4,0,0.2,1);
+}
+.light{
+  --bg:#f5f5f5;--bg2:#fff;--bg3:#eee;--border:#ddd;--border2:#ccc;
+  --t1:#1a1a1e;--t2:#555;--t3:#888;--accent:#8b5e3c;--accent2:#6b4423;
+  --accentg:rgba(139,94,60,0.08);--code:#f5f5f5;--scroll:#ccc;
+  --cv-active:#3a8f5a;--cv-activeg:rgba(58,143,90,0.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'DM Mono',monospace;font-size:13px;overflow:hidden}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:3px}
+
+.cs-app{display:flex;flex-direction:column;height:100vh;height:100svh}
+
+/* ── Header ── */
+.cs-head{display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--bg2);border-bottom:1px solid var(--border2);flex-shrink:0}
+.cs-title{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);min-width:0;flex:1}
+.cs-title i{color:var(--accent2);flex-shrink:0}
+.cs-name{color:var(--t1);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cs-sync{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--t3);flex-shrink:0;letter-spacing:.03em}
+.cs-sync-dot{width:5px;height:5px;border-radius:50%;background:var(--t3);flex-shrink:0;transition:background var(--tr)}
+.cs-sync.live .cs-sync-dot{background:var(--cv-active);animation:pulse 2s ease-in-out infinite}
+.cs-sync.live{color:var(--cv-active)}
+@keyframes pulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
+
+/* ── Toolbar ── */
+.cs-toolbar{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.cs-btn{font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border:1px solid var(--border);border-radius:16px;background:transparent;color:var(--t3);cursor:pointer;transition:all var(--tr);display:inline-flex;align-items:center;gap:4px;line-height:1}
+.cs-btn:hover{color:var(--t2);border-color:var(--t3)}
+.cs-btn.icon-only{padding:4px 8px}
+
+/* ── Writing indicator ── */
+.cs-writing{position:fixed;bottom:14px;right:14px;font-family:'DM Mono',monospace;font-size:9px;color:var(--cv-active);background:var(--cv-activeg);border:1px solid rgba(74,158,106,0.3);padding:4px 12px;border-radius:20px;display:none;align-items:center;gap:5px;z-index:10}
+.cs-writing.visible{display:flex}
+
+/* ── Canvas body ── */
+.cs-body{flex:1;display:flex;overflow:hidden;background:var(--code)}
+.cs-line-numbers{width:50px;background:var(--bg2);color:var(--t3);font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;padding:16px 8px;text-align:right;user-select:none;border-right:1px solid var(--border);overflow:hidden;flex-shrink:0}
+.cs-ta{flex:1;height:100%;background:transparent;border:none;outline:none;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;padding:16px 20px;resize:none;tab-size:2;white-space:pre}
+.cs-ta::placeholder{color:var(--t3);font-style:italic}
+
+/* ── No-channel warning ── */
+.cs-no-bc{display:flex;align-items:center;justify-content:center;height:100%;color:var(--err);font-size:13px;padding:32px;text-align:center}
+</style>
+</head>
+<body>
+<div class="cs-app" id="csApp">
+  <div class="cs-head">
+    <div class="cs-title">
+      <i class="fa-regular fa-file-lines"></i>
+      <span class="cs-name" id="csName">canvas</span>
+    </div>
+    <div class="cs-sync" id="csSyncEl">
+      <span class="cs-sync-dot"></span>
+      <span id="csSyncText">waiting…</span>
+    </div>
+    <div class="cs-toolbar">
+      <button class="cs-btn" onclick="csUndo()" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i> undo</button>
+      <button class="cs-btn" onclick="csRedo()" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i> redo</button>
+      <button class="cs-btn" onclick="csDownload()" title="Download file"><i class="fa-solid fa-download"></i></button>
+      <button class="cs-btn icon-only" onclick="window.close()" title="Close tab"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  </div>
+  <div class="cs-body" id="csBody">
+    <div class="cs-line-numbers" id="csLineNums">1</div>
+    <textarea class="cs-ta" id="csTA" spellcheck="false" wrap="off"
+      placeholder="Waiting for content from main tab…&#10;&#10;Open a canvas in the main N.O.M.A.D window to sync here."></textarea>
+  </div>
+</div>
+<div class="cs-writing" id="csWriting"><i class="fa-solid fa-pencil"></i> writing…</div>
+
+<script>
+// Apply saved theme immediately to avoid flash
+(function(){
+  var s=localStorage.getItem("nomad_theme");
+  if(s==="light"){document.documentElement.classList.remove("dark");document.documentElement.classList.add("light");}
+})();
+</script>
+<script src="/static/js/canvas-standalone.js"></script>
+</body>
+</html>

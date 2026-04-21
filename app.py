@@ -64,6 +64,9 @@ try:
 except Exception:
     VOICE_PAGE = "<h1>Voice page not found</h1>"
 
+_canvas_standalone_path = os.path.join(os.path.dirname(__file__), "templates", "canvas-standalone.html")
+CANVAS_STANDALONE_PAGE = open(_canvas_standalone_path).read()
+
 
 # ── Main pages ────────────────────────────────────────────────────────────────
 
@@ -75,6 +78,11 @@ def index():
 @app.route("/voice")
 def voice_page():
     return VOICE_PAGE
+
+
+@app.route("/canvas-standalone")
+def canvas_standalone():
+    return CANVAS_STANDALONE_PAGE
 
 
 # ── Voice routes ──────────────────────────────────────────────────────────────
