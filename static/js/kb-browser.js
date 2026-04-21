@@ -25,7 +25,7 @@
   function loadStats() {
     var el = $('#kb-stats');
     if (!el) return;
-    el.innerHTML = '<span class="kb-loading">Loading stats…</span>';
+    el.innerHTML = '<div class="skeleton skeleton-text" style="width:40%"></div><div class="skeleton skeleton-text" style="width:60%"></div><div class="skeleton skeleton-text" style="width:50%"></div>';
     fetch('/kb/stats')
       .then(function (r) { return r.json(); })
       .then(function (d) {
@@ -48,7 +48,7 @@
     var list = $('#kb-doc-list');
     var pager = $('#kb-pager');
     if (!list) return;
-    list.innerHTML = '<div class="kb-loading">Loading…</div>';
+    list.innerHTML = '<div class="kb-doc-skeleton"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:70%"></div></div>'.repeat(5);
     if (pager) pager.innerHTML = '';
 
     var url = '/kb/documents?page=' + KB.page + '&per_page=' + KB.perPage;

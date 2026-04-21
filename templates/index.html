@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link id="prism-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
 :root,.dark{
   --bg:#1a1a1e;--bg2:#222226;--bg3:#2a2a2f;
@@ -18,6 +19,7 @@
   --code:#1e1e22;--scroll:#363640;
   --cv-active:#4a9e6a;--cv-activeg:rgba(74,158,106,0.12);
   --r:12px;--rs:8px;--tr:0.2s cubic-bezier(0.4,0,0.2,1);
+  --space-xs:4px;--space-sm:8px;--space-md:16px;--space-lg:24px;--space-xl:32px;--space-2xl:48px;--space-3xl:64px;
 }
 .light{--bg:#f5f5f5;--bg2:#fff;--bg3:#eee;--border:#ddd;--border2:#ccc;--t1:#1a1a1e;--t2:#555;--t3:#888;--accent:#8b5e3c;--accent2:#6b4423;--accentg:rgba(139,94,60,0.08);--chat:#557799;--ok:#5a8f5a;--code:#f0f0f0;--scroll:#ccc;--cv-active:#3a8f5a;--cv-activeg:rgba(58,143,90,0.08);}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -25,7 +27,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'Source S
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:3px}
 .app{display:flex;height:100vh;height:100svh;position:relative}
 .chat-panel{display:flex;flex-direction:column;flex:1;transition:margin-right var(--tr)}
-.chat-inner{max-width:780px;width:100%;margin:0 auto;display:flex;flex-direction:column;height:100%;padding:0 24px}
+.chat-inner{max-width:880px;width:100%;margin:0 auto;display:flex;flex-direction:column;height:100%;padding:0 24px}
 .toast-container{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
 .toast{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:8px 20px;font-family:'DM Mono',monospace;font-size:11px;color:var(--t2);box-shadow:0 4px 12px rgba(0,0,0,0.2);animation:toastIn 0.3s ease}
 @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -91,9 +93,9 @@ header{padding:24px 0 16px;border-bottom:1px solid var(--border2);flex-shrink:0}
 .mode-toggle{display:flex;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:2px;gap:2px}.mbtn{font-family:'DM Mono',monospace;font-size:10px;padding:3px 12px;border:none;border-radius:18px;cursor:pointer;transition:all var(--tr);background:transparent;color:var(--t3)}.mbtn.ar{background:var(--accent);color:var(--bg)}.mbtn.ac{background:var(--chat);color:var(--bg)}.mbtn.aa{background:var(--ok);color:var(--bg)}
 .chat-area{flex:1;overflow-y:auto;padding:20px 0}.msg{margin-bottom:24px;animation:fi .3s ease}@keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}.ml{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;color:var(--t3)}.ml.u{color:var(--accent2)}.mb{font-size:15px;line-height:1.75;color:var(--t1)}.mb.ut{font-size:16px}.mb p{margin-bottom:10px}.mb p:last-child{margin-bottom:0}.mb code{font-family:'JetBrains Mono',monospace;font-size:13px;background:var(--code);padding:2px 6px;border-radius:4px;border:1px solid var(--border2);color:var(--accent)}.mb pre{background:var(--code);border:1px solid var(--border);border-radius:var(--rs);padding:14px 18px;margin:10px 0;overflow-x:auto;position:relative}.cpb{position:absolute;top:6px;right:6px;font-family:'DM Mono',monospace;font-size:9px;background:var(--bg2);border:1px solid var(--border);color:var(--t3);padding:2px 8px;border-radius:12px;cursor:pointer;opacity:0;transition:opacity var(--tr);z-index:10}.mb pre:hover .cpb{opacity:1}.cpb:hover{color:var(--t2);background:var(--bg3)}
 .srch{display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--t3);margin-bottom:16px}.dots span{display:inline-block;width:4px;height:4px;background:var(--accent);border-radius:50%;margin-right:2px;animation:bn 1.2s ease-in-out infinite}.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}@keyframes bn{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1.2)}}.cur{display:inline-block;width:2px;height:1em;background:var(--accent);margin-left:2px;animation:bl .8s step-end infinite;vertical-align:text-bottom}@keyframes bl{50%{opacity:0}}
-.input-area{flex-shrink:0;padding:14px 0 20px;border-top:1px solid var(--border2)}
+.input-area{flex-shrink:0;padding:16px 0 24px;border-top:1px solid var(--border2)}
 .input-row{display:flex;align-items:flex-end;gap:10px}
-.iw{flex:1;display:flex;align-items:flex-end;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:8px 10px 8px 20px;transition:border-color var(--tr),box-shadow var(--tr)}.iw:focus-within{border-color:var(--accent2);box-shadow:0 0 0 3px var(--accentg)}.iw textarea{flex:1;background:none;border:none;outline:none;color:var(--t1);font-family:'Source Serif 4',serif;font-size:15px;line-height:1.6;resize:none;min-height:26px;max-height:140px;padding:6px 0}.iw textarea::placeholder{color:var(--t3);font-style:italic}.ib{flex-shrink:0;width:34px;height:34px;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--tr);background:transparent;color:var(--t3)}.ib:hover{color:var(--t2);background:var(--bg3)}.ib.send{width:46px;height:46px;border-radius:50%;background:var(--bg3);color:var(--t3);border:1px solid var(--border2);flex-shrink:0;transition:background var(--tr),color var(--tr),border-color var(--tr),transform var(--tr)}.ib.send:hover:not(:disabled){transform:scale(1.07)}.ib.send:disabled{opacity:.35;cursor:not-allowed}.ib.rec{color:#ff4444;animation:mp 1s ease-in-out infinite}@keyframes mp{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+.iw{flex:1;display:flex;align-items:flex-end;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:28px;padding:8px 10px 8px 20px;transition:border-color var(--tr),box-shadow var(--tr)}.iw:focus-within{border-color:var(--accent2);box-shadow:0 0 0 3px var(--accentg)}.iw textarea{flex:1;background:none;border:none;outline:none;color:var(--t1);font-family:'Source Serif 4',serif;font-size:15px;line-height:1.6;resize:none;min-height:26px;max-height:140px;padding:6px 0}.iw textarea::placeholder{color:var(--t3);font-style:italic}.ib{flex-shrink:0;width:34px;height:34px;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--tr);background:transparent;color:var(--t3)}.ib:hover{color:var(--t2);background:var(--bg3)}.ib.send{width:46px;height:46px;border-radius:50%;background:var(--bg3);color:var(--t3);border:1px solid var(--border2);flex-shrink:0;transition:background var(--tr),color var(--tr),border-color var(--tr),transform var(--tr)}.ib.send:hover:not(:disabled){transform:scale(1.07)}.ib.send:disabled{opacity:.35;cursor:not-allowed}.ib.rec{color:#ff4444;animation:mp 1s ease-in-out infinite}@keyframes mp{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}.ib.rec i{animation:mp 1s ease-in-out infinite}
 .hint{text-align:center;font-family:'DM Mono',monospace;font-size:9px;color:var(--t3);padding:0 0 8px;letter-spacing:.05em}.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;animation:fi .8s ease}.ei{font-family:'Instrument Serif',serif;font-size:42px;color:var(--border);margin-bottom:12px}.et{font-size:14px;color:var(--t3);max-width:340px;line-height:1.7}.exs{margin-top:20px;display:flex;flex-direction:column;gap:6px}.exb{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 16px;color:var(--t2);font-family:'Source Serif 4',serif;font-size:13px;cursor:pointer;transition:all var(--tr);text-align:left}.exb:hover{border-color:var(--accent2);color:var(--t1);background:var(--bg3)}.exb-loading{pointer-events:none;min-height:36px;background:var(--bg3);border-color:var(--border2);animation:shimmer 1.6s ease-in-out infinite}@keyframes shimmer{0%,100%{opacity:.35}50%{opacity:.65}}.exb-ready{animation:fi .4s ease}
 .cv-drop-overlay{display:none;position:absolute;inset:0;background:rgba(74,158,106,0.15);border:2px dashed var(--cv-active);border-radius:var(--rs);z-index:20;align-items:center;justify-content:center;flex-direction:column;gap:8px;font-family:"DM Mono",monospace;font-size:13px;color:var(--cv-active);pointer-events:none}
 .cv-drop-overlay.active{display:flex}
@@ -458,6 +460,26 @@ header{padding:24px 0 16px;border-bottom:1px solid var(--border2);flex-shrink:0}
 .tool-call summary:hover{color:var(--t2)}
 .tc-args{color:var(--t3);font-size:10px;opacity:.65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px}
 pre.tool-result{margin:0;padding:8px 10px;font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--t2);white-space:pre-wrap;word-break:break-all;max-height:180px;overflow-y:auto;background:var(--bg3)}
+/* ── Skeleton loading ──────────────────────────────────────────────────────── */
+@keyframes skeleton-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.skeleton{background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%);background-size:200% 100%;animation:skeleton-shimmer 1.5s infinite;border-radius:var(--rs)}
+.skeleton-text{height:12px;margin-bottom:6px;border-radius:4px}
+.skeleton-title{height:16px;width:60%;margin-bottom:10px;border-radius:4px}
+.skeleton-card{height:80px;border-radius:var(--r);margin-bottom:12px}
+/* ── Toast types ───────────────────────────────────────────────────────────── */
+.toast{display:flex;align-items:center;gap:8px}
+.toast-icon{font-size:13px;flex-shrink:0}
+.toast-success .toast-icon{color:var(--ok)}
+.toast-error .toast-icon{color:var(--err)}
+.toast-warning .toast-icon{color:var(--warn)}
+.toast-info .toast-icon{color:var(--accent)}
+/* ── Button micro-interactions ─────────────────────────────────────────────── */
+.nav-btn:hover{transform:translateY(-1px)}
+.nav-dd-item:hover{transform:translateX(2px)}
+.exb:hover{transform:translateY(-1px)}
+.mab:hover{transform:translateY(-1px)}
+/* ── System theme fallback ─────────────────────────────────────────────────── */
+@media(prefers-color-scheme:light){html:not(.dark):not(.light){--bg:#f5f5f5;--bg2:#fff;--bg3:#eee;--border:#ddd;--border2:#ccc;--t1:#1a1a1e;--t2:#555;--t3:#888;--accent:#8b5e3c;--accent2:#6b4423;--accentg:rgba(139,94,60,0.08);--chat:#557799;--ok:#5a8f5a;--code:#f0f0f0;--scroll:#ccc;--cv-active:#3a8f5a;--cv-activeg:rgba(58,143,90,0.08);}}
 /* ── Nav dropdown ───────────────────────────────────────────────────────────── */
 .nav-menu{position:relative}
 .nav-dropdown{display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);min-width:170px;z-index:200;box-shadow:0 4px 24px rgba(0,0,0,.35);overflow:hidden}
@@ -476,25 +498,25 @@ pre.tool-result{margin:0;padding:8px 10px;font-family:"JetBrains Mono",monospace
           <div class="logo">N.O.M.A.D<span class="logo-dot"></span></div>
           <div class="header-right">
             <div class="nav">
-              <button class="nav-btn" onclick="toggleTheme()" id="themeBtn">&#127769; dark</button>
+              <button class="nav-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle theme"><i class="fa-solid fa-moon"></i> dark</button>
               <div class="nav-menu" id="navMenu">
-                <button class="nav-btn" onclick="toggleNavMenu(event)" id="navMenuBtn">&#8943;</button>
+                <button class="nav-btn" onclick="toggleNavMenu(event)" id="navMenuBtn" title="More options"><i class="fa-solid fa-ellipsis"></i></button>
                 <div class="nav-dropdown" id="navDropdown">
-                  <a class="nav-dd-item" href="/voice">&#127911; voice</a>
-                  <a class="nav-dd-item" href="/kb/browser">&#128218; knowledge base</a>
+                  <a class="nav-dd-item" href="/voice"><i class="fa-solid fa-headphones"></i> voice</a>
+                  <a class="nav-dd-item" href="/kb/browser"><i class="fa-solid fa-database"></i> knowledge base</a>
                   <div class="nav-dd-sep"></div>
-                  <button class="nav-dd-item" onclick="toggleHistory();closeNavMenu()">&#128336; history</button>
-                  <button class="nav-dd-item" onclick="clearChat();closeNavMenu()">&#10005; clear chat</button>
+                  <button class="nav-dd-item" onclick="toggleHistory();closeNavMenu()"><i class="fa-solid fa-clock-rotate-left"></i> history</button>
+                  <button class="nav-dd-item" onclick="clearChat();closeNavMenu()"><i class="fa-solid fa-xmark"></i> clear chat</button>
                   <div class="nav-dd-sep"></div>
-                  <button class="nav-dd-item" onclick="toggleToolConfig();closeNavMenu()">&#9881; tools</button>
-                  <button class="nav-dd-item" onclick="toggleStats();closeNavMenu()">&#128187; system</button>
+                  <button class="nav-dd-item" onclick="toggleToolConfig();closeNavMenu()"><i class="fa-solid fa-wrench"></i> tools</button>
+                  <button class="nav-dd-item" onclick="toggleStats();closeNavMenu()"><i class="fa-solid fa-server"></i> system</button>
                 </div>
               </div>
             </div>
             <div class="mode-toggle">
-              <button class="mbtn ar" id="bRag" onclick="setMode('rag')">RAG</button>
-              <button class="mbtn" id="bChat" onclick="setMode('chat')">CHAT</button>
-              <button class="mbtn" id="bAgent" onclick="setMode('agent')">AGENT</button>
+              <button class="mbtn ar" id="bRag" onclick="setMode('rag')"><i class="fa-solid fa-database"></i> RAG</button>
+              <button class="mbtn" id="bChat" onclick="setMode('chat')"><i class="fa-regular fa-comments"></i> CHAT</button>
+              <button class="mbtn" id="bAgent" onclick="setMode('agent')"><i class="fa-solid fa-robot"></i> AGENT</button>
             </div>
           </div>
         </div>
@@ -509,7 +531,7 @@ pre.tool-result{margin:0;padding:8px 10px;font-family:"JetBrains Mono",monospace
       </header>
       <div class="chat-area" id="chat">
         <div class="empty" id="empty">
-          <div class="ei">&#10022;</div>
+          <div class="ei"><i class="fa-solid fa-star-of-life" style="font-size:42px;color:var(--border)"></i></div>
           <div class="et">Ask anything about your offline knowledge base, chat freely, or open the canvas to collaborate.</div>
           <div class="exs">
             <button class="exb exb-loading" onclick="askEx(this)"></button>
@@ -519,15 +541,15 @@ pre.tool-result{margin:0;padding:8px 10px;font-family:"JetBrains Mono",monospace
         </div>
       </div>
       <div class="input-area">
-        <div class="file-badge" id="fileBadge"><span>&#128196;</span><span id="fileBadgeName"></span><span class="file-badge-remove" onclick="clearAttachment()" title="Remove">&#10005;</span></div>
+        <div class="file-badge" id="fileBadge"><span><i class="fa-regular fa-file"></i></span><span id="fileBadgeName"></span><span class="file-badge-remove" onclick="clearAttachment()" title="Remove"><i class="fa-solid fa-xmark"></i></span></div>
         <div class="cv-input-badge" id="cvInputBadge"><span class="cv-input-badge-dot"></span>canvas is active as context</div>
         <div class="input-row">
           <div class="iw" id="iw">
             <textarea id="inp" placeholder="Ask your knowledge base..." rows="1" onkeydown="hk(event)" oninput="ar(this)"></textarea>
-            <button class="ib" id="cvBtn" onclick="toggleCanvas()" title="Canvas">&#128196;</button>
-            <button class="ib" id="micBtn" onclick="toggleRec()" title="Voice">&#127908;</button>
+            <button class="ib" id="cvBtn" onclick="toggleCanvas()" title="Open canvas"><i class="fa-regular fa-file-lines"></i></button>
+            <button class="ib" id="micBtn" onclick="toggleRec()" title="Voice input"><i class="fa-solid fa-microphone"></i></button>
           </div>
-          <button class="ib send" id="sendBtn" onclick="sendMsg()"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+          <button class="ib send" id="sendBtn" onclick="sendMsg()" title="Send message"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
         </div>
       </div>
       <div class="hint">pi 5 &middot; nomad desktop &middot; fully local</div>
@@ -537,25 +559,25 @@ pre.tool-result{margin:0;padding:8px 10px;font-family:"JetBrains Mono",monospace
     <div class="canvas-sidebar-tab" onclick="toggleCanvas()"><span id="sidebarTabLabel">canvas</span></div>
     <div class="cv-tab-bar">
       <div class="cv-tabs-container" id="cvTabs"></div>
-      <div class="cv-new-tab" onclick="cvNewTab()" title="New tab">+</div>
+      <div class="cv-new-tab" onclick="cvNewTab()" title="New tab"><i class="fa-solid fa-plus"></i></div>
     </div>
     <div class="cv-head">
-      <div class="cv-title"><span>&#128196;</span><span id="cvName">untitled</span></div>
+      <div class="cv-title"><span><i class="fa-regular fa-file-lines"></i></span><span id="cvName">untitled</span></div>
       <div style="display:flex;gap:4px;align-items:center">
         <select id="themeSelect" class="theme-select" onchange="changePrismTheme(this.value)">
           <option value="tomorrow">Tomorrow</option><option value="dracula">Dracula</option><option value="monokai">Monokai</option>
         </select>
         <button class="nav-btn" onclick="cvToggleSplit()" id="splitBtn">split</button>
-        <button class="nav-btn" onclick="toggleCanvas()">&#10005;</button>
+        <button class="nav-btn" onclick="toggleCanvas()"><i class="fa-solid fa-xmark"></i></button>
       </div>
     </div>
     <div class="cv-toolbar">
-      <button class="cv-toolbar-btn" onclick="cvUndo()">&#8617; undo</button>
-      <button class="cv-toolbar-btn" onclick="cvRedo()">&#8618; redo</button>
+      <button class="cv-toolbar-btn" onclick="cvUndo()"><i class="fa-solid fa-rotate-left"></i> undo</button>
+      <button class="cv-toolbar-btn" onclick="cvRedo()"><i class="fa-solid fa-rotate-right"></i> redo</button>
       <button class="cv-toolbar-btn" onclick="cvFind()">find</button>
       <button class="cv-toolbar-btn" onclick="cvReplace()">replace</button>
-      <button class="cv-toolbar-btn" onclick="cvBeautify()">&#10024; beautify</button>
-      <button class="cv-toolbar-btn" onclick="document.getElementById('cvFileInput').click()">&#128228; load file</button>
+      <button class="cv-toolbar-btn" onclick="cvBeautify()"><i class="fa-solid fa-wand-magic-sparkles"></i> beautify</button>
+      <button class="cv-toolbar-btn" onclick="document.getElementById('cvFileInput').click()"><i class="fa-solid fa-file-arrow-up"></i> load file</button>
       <input type="file" id="cvFileInput" style="display:none" accept=".txt,.py,.js,.html,.css,.json,.md,.sh,.sql,.pdf,.png,.jpg,.jpeg,.webp" onchange="cvLoadFile(this)">
       <button class="cv-toolbar-btn" onclick="cvDl()">download</button>
       <button class="cv-toolbar-btn" onclick="cvSetGoal()">word goal</button>
@@ -569,21 +591,21 @@ pre.tool-result{margin:0;padding:8px 10px;font-family:"JetBrains Mono",monospace
     </div>
     <div class="cv-ctx-bar" id="cvCtxBar"><span class="cv-ctx-dot"></span><span>active as context &mdash; LLM can read and edit this</span></div>
     <div class="cv-body">
-      <div class="cv-drop-overlay" id="cvDropOverlay"><span class="cv-drop-icon">&#128196;</span><span>Drop file to load into canvas</span><span style="font-size:10px;opacity:0.7">PDF &middot; image &middot; text &middot; code</span></div>
+      <div class="cv-drop-overlay" id="cvDropOverlay"><span class="cv-drop-icon"><i class="fa-solid fa-file-arrow-down fa-2x"></i></span><span>Drop file to load into canvas</span><span style="font-size:10px;opacity:0.7">PDF &middot; image &middot; text &middot; code</span></div>
       <div class="cv-goal-bar" id="cvGoalBar" style="display:none"><div class="cv-goal-progress" id="cvGoalProgress"></div></div>
       <div id="cvSplitContainer" class="cv-split-container">
         <div class="cv-edit" id="cvEdit">
           <div class="cv-line-numbers" id="cvLineNumbers">1</div>
           <textarea id="cvTa" placeholder="Start writing, or ask the LLM to generate content here.&#10;&#10;Canvas is sent as context with every message.&#10;Ask to 'fix', 'improve', 'add error handling', etc." oninput="cvStats();cvUpdateLineNumbers();cvPushHistory();cvUpdateMinimap();cvAutoSave()" onkeydown="cvHandleKeydown(event)" onscroll="cvSyncScroll()" spellcheck="false" wrap="off"></textarea>
-          <div class="cv-writing-indicator" id="cvWritingIndicator">&#9998; LLM writing...</div>
+          <div class="cv-writing-indicator" id="cvWritingIndicator"><i class="fa-solid fa-pencil"></i> LLM writing...</div>
           <div class="cv-minimap" id="cvMinimap"><div class="cv-minimap-content" id="cvMinimapContent"></div></div>
         </div>
         <div class="cv-prev-inner" id="cvPrevInner"></div>
         <div class="cv-diff" id="cvDiff">
           <div class="cv-diff-toolbar">
             <span id="diffSummary">0 changes</span>
-            <button class="cv-diff-btn accept-all" onclick="diffAcceptAll()">&#10003; accept all</button>
-            <button class="cv-diff-btn reject-all" onclick="diffRejectAll()">&#10007; reject all</button>
+            <button class="cv-diff-btn accept-all" onclick="diffAcceptAll()"><i class="fa-solid fa-check"></i> accept all</button>
+            <button class="cv-diff-btn reject-all" onclick="diffRejectAll()"><i class="fa-solid fa-xmark"></i> reject all</button>
           </div>
           <div class="cv-diff-body" id="diffBody"></div>
         </div>
@@ -607,23 +629,23 @@ pre.tool-result{margin:0;padding:8px 10px;font-family:"JetBrains Mono",monospace
   <div class="stats-inner">
     <div class="stats-header">
       <div class="stats-title">System Status</div>
-      <button class="stats-close" onclick="toggleStats()">&#10005; close</button>
+      <button class="stats-close" onclick="toggleStats()"><i class="fa-solid fa-xmark"></i> close</button>
     </div>
     <div class="stats-grid" id="statsGrid">
-      <div class="stat-card"><h3><span class="sd" id="sdPi"></span>Raspberry Pi 5</h3><div id="piStats"><div class="stat-row"><span class="stat-label">Loading...</span></div></div></div>
-      <div class="stat-card"><h3><span class="sd" id="sdNomad"></span>NOMAD Desktop</h3><div id="nomadStats"><div class="stat-row"><span class="stat-label">Loading...</span></div></div></div>
-      <div class="stat-card"><h3><span class="sd" id="sdXps"></span>XPS13</h3><div id="xpsStats"><div class="stat-row"><span class="stat-label">Loading...</span></div></div></div>
-      <div class="stat-card"><h3><span class="sd"></span>Knowledge Base</h3><div id="kbStats"><div class="stat-row"><span class="stat-label">Loading...</span></div></div></div>
+      <div class="stat-card"><h3><span class="sd" id="sdPi"></span>Raspberry Pi 5</h3><div id="piStats"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:80%"></div></div></div>
+      <div class="stat-card"><h3><span class="sd" id="sdNomad"></span>NOMAD Desktop</h3><div id="nomadStats"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:80%"></div></div></div>
+      <div class="stat-card"><h3><span class="sd" id="sdXps"></span>XPS13</h3><div id="xpsStats"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:80%"></div></div></div>
+      <div class="stat-card"><h3><span class="sd"></span>Knowledge Base</h3><div id="kbStats"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:80%"></div></div></div>
     </div>
     <div class="stat-card" style="margin-top:16px">
       <h3><span class="sd"></span>Services</h3>
       <div id="svcStats"><div class="stat-row"><span class="stat-label">Loading...</span></div></div>
     </div>
     <div class="ext-links">
-      <a class="ext-link" href="DOZZLE_PLACEHOLDER" target="_blank">&#9881; Dozzle</a>
-      <a class="ext-link" href="http://192.168.2.20:3000" target="_blank">&#9881; Grafana</a>
-      <a class="ext-link" href="http://192.168.2.20:9090" target="_blank">&#9881; Prometheus</a>
-      <a class="ext-link" href="NOMAD_PLACEHOLDER" target="_blank">&#9881; NOMAD Command Center</a>
+      <a class="ext-link" href="DOZZLE_PLACEHOLDER" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Dozzle</a>
+      <a class="ext-link" href="http://192.168.2.20:3000" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Grafana</a>
+      <a class="ext-link" href="http://192.168.2.20:9090" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Prometheus</a>
+      <a class="ext-link" href="NOMAD_PLACEHOLDER" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> NOMAD Command Center</a>
     </div>
   </div>
 </div>
@@ -636,7 +658,7 @@ pre.tool-result{margin:0;padding:8px 10px;font-family:"JetBrains Mono",monospace
       <div class="history-title">Chat History</div>
       <div style="display:flex;gap:8px">
         <button class="stats-close" onclick="historyClear()" style="color:var(--err);border-color:var(--err)">clear all</button>
-        <button class="stats-close" onclick="toggleHistory()">&#10005; close</button>
+        <button class="stats-close" onclick="toggleHistory()"><i class="fa-solid fa-xmark"></i> close</button>
       </div>
     </div>
     <div class="history-list" id="historyList">
@@ -653,7 +675,7 @@ pre.tool-result{margin:0;padding:8px 10px;font-family:"JetBrains Mono",monospace
         <div class="toolcfg-title">Tool Settings</div>
         <div class="toolcfg-subtitle">beheer agent-tools &middot; parameters &middot; aan/uit</div>
       </div>
-      <button class="stats-close" onclick="toggleToolConfig()">&#10005; close</button>
+      <button class="stats-close" onclick="toggleToolConfig()"><i class="fa-solid fa-xmark"></i> close</button>
     </div>
     <div class="toolcfg-grid" id="toolcfgGrid">
       <div class="toolcfg-loading">Loading tools&hellip;</div>
@@ -675,14 +697,14 @@ function ar(e){e.style.height="auto";e.style.height=Math.min(e.scrollHeight,120)
 function hk(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMsg();}}
 function askEx(b){G.inp.value=b.textContent;sendMsg();}
 function esc(s){var d=document.createElement("div");d.appendChild(document.createTextNode(s));return d.innerHTML;}
-function showToast(msg,dur){dur=dur||2500;var c=document.getElementById("toastContainer");var t=document.createElement("div");t.className="toast";t.textContent=msg;c.appendChild(t);setTimeout(function(){if(t.parentNode)t.remove();},dur);}
+function showToast(msg,type,dur){if(typeof type==="number"){dur=type;type=null;}dur=dur||2500;var icons={success:"fa-circle-check",error:"fa-circle-exclamation",warning:"fa-triangle-exclamation",info:"fa-circle-info"};var c=document.getElementById("toastContainer");var t=document.createElement("div");t.className="toast"+(type?" toast-"+type:"");if(type&&icons[type]){var ic=document.createElement("i");ic.className="fa-solid "+icons[type]+" toast-icon";t.appendChild(ic);}var s=document.createElement("span");s.textContent=msg;t.appendChild(s);c.appendChild(t);setTimeout(function(){if(t.parentNode)t.remove();},dur);}
 function cpCode(btn){var pre=btn.closest("pre");if(!pre)return;var code=pre.querySelector("code");navigator.clipboard.writeText(code?code.textContent:pre.textContent).then(function(){btn.textContent="copied!";setTimeout(function(){btn.textContent="copy";},1500)});}
 function fmt(t){var f=t;f=f.replace(/```(\w*)\n([\s\S]*?)```/g,function(m,lang,code){return '<pre class="language-'+(lang||"plaintext")+'"><code>'+esc(code)+'</code><button class="cpb" onclick="cpCode(this)">copy</button></pre>';});f=f.replace(/`([^`]+)`/g,"<code>$1</code>");f=f.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");var p=f.split("\n\n");f=p.map(function(x){x=x.trim();if(!x)return"";if(x.indexOf("<pre")!==-1)return x;return"<p>"+x+"</p>";}).join("");f=f.replace(/\n/g,"<br>");setTimeout(function(){document.querySelectorAll(".mb pre code").forEach(function(b){if(window.Prism)Prism.highlightElement(b);});},10);return f;}
-function toggleTheme(){var h=document.documentElement,b=document.getElementById("themeBtn");if(h.classList.contains("light")){h.classList.remove("light");b.innerHTML="&#127769; dark";localStorage.setItem("nomad_theme","dark");}else{h.classList.add("light");b.innerHTML="&#9728;&#65039; light";localStorage.setItem("nomad_theme","light");}}
+function toggleTheme(){var h=document.documentElement,b=document.getElementById("themeBtn");if(h.classList.contains("light")){h.classList.remove("light");h.classList.add("dark");b.innerHTML='<i class="fa-solid fa-moon"></i> dark';localStorage.setItem("nomad_theme","dark");}else{h.classList.remove("dark");h.classList.add("light");b.innerHTML='<i class="fa-solid fa-sun"></i> light';localStorage.setItem("nomad_theme","light");}}
 function changePrismTheme(t){var themes={tomorrow:"prism-tomorrow",dracula:"prism-dracula",monokai:"prism-monokai"};document.getElementById("prism-theme").href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/"+themes[t]+".min.css";}
-(function(){var s=localStorage.getItem("nomad_theme");if(s==="light"){document.documentElement.classList.add("light");document.getElementById("themeBtn").innerHTML="&#9728;&#65039; light";}})();
+(function(){var s=localStorage.getItem("nomad_theme");var h=document.documentElement;var b=document.getElementById("themeBtn");if(s==="light"){h.classList.remove("dark");h.classList.add("light");b.innerHTML='<i class="fa-solid fa-sun"></i> light';}else if(s==="dark"||!s){h.classList.remove("light");h.classList.add("dark");b.innerHTML='<i class="fa-solid fa-moon"></i> dark';}})();
 function getFileIcon(lang){var i={python:"&#128013;",javascript:"&#128249;",html:"&#127760;",css:"&#127912;",bash:"&#128187;",json:"&#128230;",markdown:"&#128196;",sql:"&#128451;"};return i[lang]||"&#128196;";}
-function renderTabs(){var c=document.getElementById("cvTabs");c.innerHTML="";G.cvTabs.forEach(function(t,i){var d=document.createElement("div");d.className="cv-tab-item"+(i===G.cvActiveTab?" active":"");d.innerHTML=getFileIcon(t.language)+" "+esc(t.name)+(G.cvTabs.length>1?'<span class="cv-tab-close" onclick="event.stopPropagation();cvCloseTab('+i+')">\xd7</span>':"")+'';d.onclick=function(){cvSwitchTab(i);};c.appendChild(d);});}
+function renderTabs(){var c=document.getElementById("cvTabs");c.innerHTML="";G.cvTabs.forEach(function(t,i){var d=document.createElement("div");d.className="cv-tab-item"+(i===G.cvActiveTab?" active":"");d.innerHTML=getFileIcon(t.language)+" "+esc(t.name)+(G.cvTabs.length>1?'<span class="cv-tab-close" onclick="event.stopPropagation();cvCloseTab('+i+')"><i class="fa-solid fa-xmark"></i></span>':"")+'';d.onclick=function(){cvSwitchTab(i);};c.appendChild(d);});}
 function cvNewTab(){G.cvTabs.push({name:"untitled-"+(G.cvTabs.length+1),content:"",language:"plaintext"});G.cvActiveTab=G.cvTabs.length-1;renderTabs();loadActiveTab();}
 function cvCloseTab(i){if(G.cvTabs.length<=1)return;G.cvTabs.splice(i,1);if(G.cvActiveTab>=i)G.cvActiveTab=Math.max(0,G.cvActiveTab-1);renderTabs();loadActiveTab();}
 function cvSwitchTab(i){if(i===G.cvActiveTab)return;saveActiveTab();G.cvActiveTab=i;renderTabs();loadActiveTab();cvStats();}
@@ -864,7 +886,7 @@ function updateDiffSummary(){var p=G_diff.resolved.filter(function(r){return r==
 function checkDiffDone(){if(G_diff.resolved.filter(function(r){return r===null;}).length===0)applyDiff();}
 function applyDiff(){var text=document.getElementById("cvTa").value;for(var i=0;i<G_diff.ops.length;i++){if(!G_diff.resolved[i])continue;var r=applyOp(text,G_diff.ops[i]);if(r!==null)text=r;}document.getElementById("cvTa").value=text;cvStats();cvUpdateLineNumbers();cvUpdateMinimap();cvUpdateContextState();cvHideDiff();G_diff.ops=[];G_diff.resolved=[];var ta=document.getElementById("cvTa");ta.style.background="#1a2a1e";setTimeout(function(){ta.style.background="";},600);}
 function setMode(m){G.mode=m;document.getElementById("bRag").className="mbtn"+(m==="rag"?" ar":"");document.getElementById("bChat").className="mbtn"+(m==="chat"?" ac":"");document.getElementById("bAgent").className="mbtn"+(m==="agent"?" aa":"");if(m==="rag")G.inp.placeholder="Ask your knowledge base...";else if(m==="agent")G.inp.placeholder="Give NOMAD a task...";else G.inp.placeholder="Chat freely...";var iw=document.getElementById("iw");iw.classList.remove("mode-rag","mode-chat","mode-agent");iw.classList.add("mode-"+m);}
-function clearChat(){if(G.history.length>1)historySave(G.history);G.history=[];G.chat.innerHTML="";var e=document.createElement("div");e.className="empty";e.id="empty";e.innerHTML='<div class="ei">&#10022;</div><div class="et">Ask anything or open the canvas to collaborate.</div>';G.chat.appendChild(e);G.empty=e;}
+function clearChat(){if(G.history.length>1)historySave(G.history);G.history=[];G.chat.innerHTML="";var e=document.createElement("div");e.className="empty";e.id="empty";e.innerHTML='<div class="ei"><i class="fa-solid fa-star-of-life" style="font-size:42px;color:var(--border)"></i></div><div class="et">Ask anything or open the canvas to collaborate.</div>';G.chat.appendChild(e);G.empty=e;}
 function addMsg(role,content){if(G.empty)G.empty.style.display="none";var m=document.createElement("div");m.className="msg";var l=document.createElement("div");l.className="ml"+(role==="user"?" u":"");l.textContent=role==="user"?"You":"N.O.M.A.D";m.appendChild(l);var b=document.createElement("div");b.className="mb"+(role==="user"?" ut":"");if(role==="user")b.textContent=content;else b.innerHTML=fmt(content);m.appendChild(b);G.chat.appendChild(m);G.chat.scrollTop=G.chat.scrollHeight;return b;}
 function addActs(el,text,isFb,fbQ){var a=document.createElement("div");a.className="ma";var cb=document.createElement("button");cb.className="mab";cb.innerHTML="&#128196; to canvas";var ct=text;cb.onclick=function(){writeToCv(ct);};a.appendChild(cb);if(isFb&&fbQ){var sb=document.createElement("button");sb.className="mab";sb.innerHTML="&#10003; save to kb";var cq=fbQ,ca=text;sb.onclick=function(){saveKB(sb,cq,ca);};a.appendChild(sb);}el.parentElement.appendChild(a);}
 function showS(t){if(G.empty)G.empty.style.display="none";rmS();var e=document.createElement("div");e.className="srch";e.id="srch";e.innerHTML='<div class="dots"><span></span><span></span><span></span></div><span>'+esc(t)+"</span>";G.chat.appendChild(e);G.chat.scrollTop=G.chat.scrollHeight;}
