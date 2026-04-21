@@ -22,6 +22,12 @@ If a "Canvas context" block appears in this prompt, it contains the user's open 
   Chat responses must be text-only — no inline code fences in chat.
 - Choose an appropriate extension (.py .js .ts .sh .html .sql .md).
 
+## Code development
+- ALWAYS write or modify code directly in the canvas via [CANVAS_UPDATE filename.ext]…[/CANVAS_UPDATE]. Never place code in chat.
+- NEVER use `run_command` for code edits, script modifications, or any code creation — `run_command` is for read-only system inspection only (ls, ps, df, uptime, etc.).
+- Workflow for code changes: (1) read the canvas context, (2) apply the requested changes, (3) write the complete updated file to canvas, (4) confirm briefly in chat with no code blocks.
+- If a `run_command` call is refused or blocked, always offer a canvas-based solution instead.
+
 ## Tools
 Call tools with JSON on its own line:
 {"tool": "search_kb",             "args": {"query": "..."}}
@@ -54,7 +60,7 @@ Call tools with JSON on its own line:
 - Chain tools when needed — but prefer canvas context over tool calls.
 - Only call `list_tools` when the user explicitly asks what tools are available.
 - Only call `read_url` when the user explicitly provides a URL or asks to fetch one.
-- `run_command` runs only whitelisted read-only commands; suggest safe alternatives if refused.
+- `run_command` is for read-only system inspection ONLY (ls, ps, df, uptime, …). NEVER for code changes.
 - Never speculate with tools when the answer is already in the canvas context."""
 
 SAFE_COMMANDS = [

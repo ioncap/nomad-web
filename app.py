@@ -1012,7 +1012,30 @@ def agent():
                     _args_preview = json.dumps(tool_args)[:200] if tool_args else ""
                     yield sse("tool_call", tool=tool_name, args=_args_preview)
 
-                    tool_result = registry.execute(tool_name, tool_args)
+                    # Block run_command when user clearly wants code modifications → canvas.
+                    # Requires both a modification verb AND a code-related noun to avoid
+                    # false-positives on system queries like "welke python versie staat op de pi?".
+                    _CODE_MODIFY_RE = re.compile(
+                        r'\b(enhance|enhancen|improve|verbeter|schrijf|aanpass|modify|'
+                        r'toevoeg|update.*script|fix.*script|update.*code|fix.*code|'
+                        r'create.*function|add.*function|voeg.*toe|pas.*aan|'
+                        r'add.*timestamp|timestamp.*toevoeg)\b',
+                        re.IGNORECASE,
+                    )
+                    _CODE_NOUN_RE = re.compile(
+                        r'\b(script|code|python|javascript|typescript|function|class|module)\b',
+                        re.IGNORECASE,
+                    )
+                    if (tool_name == "run_command"
+                            and _CODE_MODIFY_RE.search(question)
+                            and _CODE_NOUN_RE.search(question)):
+                        tool_result = (
+                            "BLOCKED: Code modifications must be made in the canvas, not via shell. "
+                            "Use [CANVAS_UPDATE filename.ext]...[/CANVAS_UPDATE] to write or update the code. "
+                            "Read the canvas context first, apply all changes, then write the complete file."
+                        )
+                    else:
+                        tool_result = registry.execute(tool_name, tool_args)
 
                     # (filename, code_fence_lang)
                     _canvas_tools = {
