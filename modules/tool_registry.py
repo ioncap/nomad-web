@@ -2,6 +2,7 @@
 Centrale tool registry voor de N.O.M.A.D Agent.
 Beheert registratie, configuratie, enable/disable en uitvoering van alle tools.
 """
+import concurrent.futures as _cf
 import json
 import logging
 import os
@@ -9,6 +10,11 @@ import threading
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+try:
+    from config import DEFAULT_TOOL_TIMEOUT as _DEFAULT_TIMEOUT
+except ImportError:
+    _DEFAULT_TIMEOUT = 60
 
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DEFAULT_CONFIG_PATH = os.path.join(_BASE_DIR, "config", "tools.json")
@@ -115,9 +121,16 @@ class ToolRegistry:
                 )
             # Merge order: default_params < config overrides < caller args
             merged = {**tool["params"], **args}
+            # exec_timeout is a registry-level control param — pop before calling func
+            timeout = int(merged.pop("exec_timeout", _DEFAULT_TIMEOUT))
             func = self._tools[name]["func"]
         try:
-            return func(merged)
+            with _cf.ThreadPoolExecutor(max_workers=1) as ex:
+                fut = ex.submit(func, merged)
+                return fut.result(timeout=timeout)
+        except _cf.TimeoutError:
+            logger.error("Tool '%s' timed out after %ds", name, timeout)
+            return f"Tool error ({name}): timed out after {timeout}s"
         except Exception as exc:
             logger.error("Tool '%s' failed: %s", name, exc, exc_info=True)
             return f"Tool error ({name}): {exc}"

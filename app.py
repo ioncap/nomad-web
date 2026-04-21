@@ -5,6 +5,7 @@ Entry point: Flask app + routes. Logic lives in modules/.
 """
 import base64
 import json
+import logging
 import math
 import os
 import random
@@ -182,31 +183,62 @@ _FALLBACK_QUESTIONS = [
     "Explain Docker volumes",
     "How to set up SSH keys?",
 ]
-_suggestions_pool: list = []
-_suggestions_ts:   float = 0.0
-_suggestions_lock  = threading.Lock()
+_suggestions_pool:     list  = []
+_suggestions_ts:       float = 0.0
+_suggestions_lock      = threading.Lock()
+_suggestions_building  = False
+_SUGGESTIONS_FILE      = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "suggestions.json")
+
+logger_sugg = logging.getLogger("suggestions")
 
 
-def _build_suggestions_pool():
-    """Generate a pool of 6 questions in a background thread."""
+def _load_suggestions_from_file() -> None:
+    """Populate pool from persisted file so we have answers immediately on startup."""
     global _suggestions_pool, _suggestions_ts
     try:
-        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-        points, _ = client.scroll(
-            collection_name=COLLECTION, limit=15,
+        if not os.path.exists(_SUGGESTIONS_FILE):
+            return
+        with open(_SUGGESTIONS_FILE) as f:
+            data = json.load(f)
+        pool = [q for q in data.get("questions", []) if isinstance(q, str) and len(q) > 8]
+        ts   = float(data.get("ts", 0.0))
+        if len(pool) >= 3:
+            with _suggestions_lock:
+                _suggestions_pool = pool
+                _suggestions_ts   = ts
+            logger_sugg.info("Loaded %d cached suggestions (age %.0fh)", len(pool),
+                             (time.time() - ts) / 3600)
+    except Exception as exc:
+        logger_sugg.warning("Could not load cached suggestions: %s", exc)
+
+
+def _build_suggestions_pool() -> None:
+    """Fetch random KB docs, ask the helper LLM for 6 example questions, persist result."""
+    global _suggestions_pool, _suggestions_ts, _suggestions_building
+    with _suggestions_lock:
+        if _suggestions_building:
+            return
+        _suggestions_building = True
+    try:
+        logger_sugg.info("Building suggestions pool from Qdrant…")
+        qclient = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, timeout=10)
+        points, _ = qclient.scroll(
+            collection_name=COLLECTION, limit=20,
             with_payload=True, with_vectors=False,
         )
         if not points:
+            logger_sugg.warning("Qdrant returned 0 points — suggestions unchanged")
             return
         random.shuffle(points)
         snippets = []
-        for pt in points[:6]:
+        for pt in points[:8]:
             pl  = pt.payload or {}
             txt = pl.get("content", pl.get("text", ""))
-            ttl = pl.get("article_title", "")
+            ttl = pl.get("article_title", pl.get("title", ""))
             if txt:
                 snippets.append((f"[{ttl}]\n" if ttl else "") + txt[:300])
         if not snippets:
+            logger_sugg.warning("No content found in Qdrant payloads")
             return
         prompt = (
             "Based on these knowledge base excerpts, generate exactly 6 short, natural questions "
@@ -221,36 +253,56 @@ def _build_suggestions_pool():
             ],
             max_tokens=220,
         )
+        if not raw:
+            logger_sugg.warning("helper_llm returned empty response")
+            return
         pool = [
             ln.strip().lstrip("•–-1234567890.) ")
             for ln in raw.splitlines() if ln.strip()
         ]
         pool = [q for q in pool if len(q) > 8][:6]
-        if len(pool) >= 3:
-            with _suggestions_lock:
-                _suggestions_pool = pool
-                _suggestions_ts   = time.time()
-    except Exception:
-        pass
+        if len(pool) < 3:
+            logger_sugg.warning("Pool too small (%d questions): %r", len(pool), pool)
+            return
+        ts = time.time()
+        with _suggestions_lock:
+            _suggestions_pool = pool
+            _suggestions_ts   = ts
+        # Persist so the next restart doesn't need to regenerate
+        try:
+            os.makedirs(os.path.dirname(_SUGGESTIONS_FILE), exist_ok=True)
+            with open(_SUGGESTIONS_FILE, "w") as f:
+                json.dump({"questions": pool, "ts": ts}, f, indent=2)
+            logger_sugg.info("Saved %d suggestions to %s", len(pool), _SUGGESTIONS_FILE)
+        except Exception as exc:
+            logger_sugg.warning("Could not persist suggestions: %s", exc)
+    except Exception as exc:
+        logger_sugg.error("Failed to build suggestions: %s", exc, exc_info=True)
+    finally:
+        with _suggestions_lock:
+            _suggestions_building = False
 
 
-# Warm the pool as soon as the server starts (non-blocking)
+# Load file-cached pool immediately, then refresh in background
+_load_suggestions_from_file()
 threading.Thread(target=_build_suggestions_pool, daemon=True).start()
 
 
 @app.route("/suggested-questions")
 def suggested_questions():
-    # Trigger a background refresh when the pool is stale (>1 h)
-    if time.time() - _suggestions_ts > 3600:
+    with _suggestions_lock:
+        pool      = list(_suggestions_pool)
+        ts        = _suggestions_ts
+        building  = _suggestions_building
+
+    # Trigger a background refresh when pool is stale (>1 h) and not already rebuilding
+    if not building and (not pool or time.time() - ts > 3600):
         threading.Thread(target=_build_suggestions_pool, daemon=True).start()
 
-    with _suggestions_lock:
-        pool = list(_suggestions_pool)
-
     if len(pool) >= 3:
-        return jsonify({"questions": random.sample(pool, 3)})
+        return jsonify({"questions": random.sample(pool, 3), "from_cache": True})
 
-    return jsonify({"questions": _FALLBACK_QUESTIONS})
+    return jsonify({"questions": _FALLBACK_QUESTIONS, "from_cache": False})
 
 
 @app.route("/pi-stats")
@@ -943,22 +995,35 @@ def agent():
 
                     tool_result = registry.execute(tool_name, tool_args)
 
+                    # (filename, code_fence_lang)
                     _canvas_tools = {
-                        "network_scan":          "network_scan.md",
-                        "network_scan_advanced": "network_scan_advanced.md",
-                        "port_scan":             "port_scan.md",
-                        "vuln_scan":             "vuln_scan.md",
-                        "system_status":         "system_status.md",
-                        "search_kb":             "search_results.md",
-                        "news_headlines":        "headlines.md",
-                        "hacker_news":           "hacker_news.md",
-                        "kb_cleaner_run":        "kb_cleaner.md",
-                        "list_tools":            "tools.md",
+                        "network_scan":          ("network_scan.md",      ""),
+                        "network_scan_advanced": ("network_scan.md",      ""),
+                        "port_scan":             ("port_scan.md",         ""),
+                        "vuln_scan":             ("vuln_scan.md",         ""),
+                        "system_status":         ("system_status.md",     ""),
+                        "search_kb":             ("search_results.md",    ""),
+                        "news_headlines":        ("headlines.md",         ""),
+                        "hacker_news":           ("hacker_news.md",       ""),
+                        "kb_cleaner_run":        ("kb_cleaner.md",        ""),
+                        "list_tools":            ("tools.md",             ""),
+                        "docker_status":         ("docker_status.md",     ""),
+                        "run_command":           ("command_output.md",    "bash"),
+                        "wikipedia":             ("wikipedia.md",         ""),
                     }
-                    if len(tool_result) > 600 and tool_name in _canvas_tools:
-                        yield sse("canvas_content", content=tool_result,
-                                  filename=_canvas_tools[tool_name])
-                        yield sse("token", token="*Results written to canvas.*\n\n")
+                    if len(tool_result) > 400 and tool_name in _canvas_tools:
+                        fn, code_lang = _canvas_tools[tool_name]
+                        # Check tool's own open_in_new_tab config setting
+                        tool_cfg = registry.get_tool(tool_name)
+                        open_new = bool((tool_cfg or {}).get("params", {}).get("open_in_new_tab", False))
+                        if open_new:
+                            yield sse("canvas_new_tab", content=tool_result,
+                                      filename=fn, code_lang=code_lang)
+                        else:
+                            yield sse("canvas_append", content=tool_result,
+                                      filename=fn, code_lang=code_lang,
+                                      header=f"## {tool_name}")
+                        yield sse("token", token=f"*Results appended to canvas ({len(tool_result)} chars).*\n\n")
                         tool_result = f"(written to canvas, {len(tool_result)} chars)"
 
                     # Send result preview to UI (first 600 chars shown in detail).
