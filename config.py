@@ -29,3 +29,6 @@ MAX_HISTORY     = int(os.getenv("MAX_HISTORY", "20"))
 # KB Cleaner
 KB_CLEANER_DRY_RUN        = os.getenv("KB_CLEANER_DRY_RUN", "true").lower() == "true"
 KB_CLEANER_INTERVAL_HOURS = int(os.getenv("KB_CLEANER_INTERVAL_HOURS", "24"))
+
+# Tool execution
+DEFAULT_TOOL_TIMEOUT = int(os.getenv("DEFAULT_TOOL_TIMEOUT", "60"))

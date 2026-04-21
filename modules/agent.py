@@ -533,7 +533,13 @@ def agent_docker_status(machine="pi"):
 registry = ToolRegistry()
 
 def _r(name, func, desc, params=None, help_text="", example=""):
-    registry.register(name, func, desc, params or {}, help_text or desc, example)
+    """Register a tool. exec_timeout and open_in_new_tab are added automatically."""
+    base = params or {}
+    # exec_timeout: max wall-clock seconds the registry waits for this tool (default 60)
+    # open_in_new_tab: if True the agent opens a new canvas tab instead of appending
+    base.setdefault("exec_timeout", 60)
+    base.setdefault("open_in_new_tab", False)
+    registry.register(name, func, desc, base, help_text or desc, example)
 
 
 _r("search_kb",
@@ -576,7 +582,7 @@ _r("system_status",
 _r("network_scan",
    agent_network_scan,
    "Fast network discovery: ARP cache → arp-scan → nmap → parallel ping",
-   {"subnet": "192.168.2.0/24", "workers": 32, "timeout": 1},
+   {"subnet": "192.168.2.0/24", "workers": 32, "timeout": 1, "exec_timeout": 45},
    help_text=(
        "Discovers live hosts using progressively slower methods:\n"
        "1. ARP cache (instant)\n"
@@ -584,27 +590,29 @@ _r("network_scan",
        "3. nmap -sn if installed (~5 s)\n"
        "4. Pure Python ThreadPoolExecutor ping sweep (stdlib, ~2-5 s)\n\n"
        "workers = parallel ping threads (default 32).  "
-       "timeout = per-host ping timeout in seconds (default 1)."
+       "timeout = per-host ping timeout (default 1 s).  "
+       "exec_timeout = max wall-clock seconds the registry waits (default 45 s)."
    ),
    example="scan het lokale netwerk")
 
 _r("network_scan_advanced",
    lambda a: agent_network_scan_advanced(a.get("subnet", "192.168.2.0/24")),
    "Nmap service version scan on the whole subnet",
-   {"subnet": "192.168.2.0/24"},
+   {"subnet": "192.168.2.0/24", "exec_timeout": 120},
    help_text="Runs nmap -sV --open. Shows open ports + service versions for every host. Takes 30-90 s.",
    example="scan het subnet op open services en versies")
 
 _r("port_scan",
    lambda a: agent_port_scan(a.get("target", ""), a.get("ports", "top1000")),
    "Detailed port + service scan on one specific host",
-   {"ports": "top1000"},
+   {"ports": "top1000", "exec_timeout": 90},
    help_text="nmap -sV on a single target. 'ports' can be 'top1000', '1-65535', or '22,80,443'.",
    example="scan de open poorten op 192.168.2.20")
 
 _r("vuln_scan",
    lambda a: agent_vuln_scan(a.get("target", "")),
    "Nmap --script=vuln vulnerability scan on one host",
+   {"exec_timeout": 180},
    help_text="Runs nmap --script=vuln. Can take 1-3 minutes. Only use on your own devices.",
    example="voer een vulnerability scan uit op 192.168.2.1")
 
@@ -623,7 +631,7 @@ _r("kb_cleaner_status",
 _r("kb_cleaner_run",
    lambda a: agent_kb_cleaner_run(a.get("dry_run", True)),
    "Trigger an immediate KB relevance clean pass",
-   {"dry_run": True},
+   {"dry_run": True, "exec_timeout": 300},
    help_text="dry_run=true only logs what would be deleted.  dry_run=false deletes for real. Returns statistics.",
    example="voer een KB opschoning uit in dry-run modus")
 

@@ -995,22 +995,35 @@ def agent():
 
                     tool_result = registry.execute(tool_name, tool_args)
 
+                    # (filename, code_fence_lang)
                     _canvas_tools = {
-                        "network_scan":          "network_scan.md",
-                        "network_scan_advanced": "network_scan_advanced.md",
-                        "port_scan":             "port_scan.md",
-                        "vuln_scan":             "vuln_scan.md",
-                        "system_status":         "system_status.md",
-                        "search_kb":             "search_results.md",
-                        "news_headlines":        "headlines.md",
-                        "hacker_news":           "hacker_news.md",
-                        "kb_cleaner_run":        "kb_cleaner.md",
-                        "list_tools":            "tools.md",
+                        "network_scan":          ("network_scan.md",      ""),
+                        "network_scan_advanced": ("network_scan.md",      ""),
+                        "port_scan":             ("port_scan.md",         ""),
+                        "vuln_scan":             ("vuln_scan.md",         ""),
+                        "system_status":         ("system_status.md",     ""),
+                        "search_kb":             ("search_results.md",    ""),
+                        "news_headlines":        ("headlines.md",         ""),
+                        "hacker_news":           ("hacker_news.md",       ""),
+                        "kb_cleaner_run":        ("kb_cleaner.md",        ""),
+                        "list_tools":            ("tools.md",             ""),
+                        "docker_status":         ("docker_status.md",     ""),
+                        "run_command":           ("command_output.md",    "bash"),
+                        "wikipedia":             ("wikipedia.md",         ""),
                     }
-                    if len(tool_result) > 600 and tool_name in _canvas_tools:
-                        yield sse("canvas_content", content=tool_result,
-                                  filename=_canvas_tools[tool_name])
-                        yield sse("token", token="*Results written to canvas.*\n\n")
+                    if len(tool_result) > 400 and tool_name in _canvas_tools:
+                        fn, code_lang = _canvas_tools[tool_name]
+                        # Check tool's own open_in_new_tab config setting
+                        tool_cfg = registry.get_tool(tool_name)
+                        open_new = bool((tool_cfg or {}).get("params", {}).get("open_in_new_tab", False))
+                        if open_new:
+                            yield sse("canvas_new_tab", content=tool_result,
+                                      filename=fn, code_lang=code_lang)
+                        else:
+                            yield sse("canvas_append", content=tool_result,
+                                      filename=fn, code_lang=code_lang,
+                                      header=f"## {tool_name}")
+                        yield sse("token", token=f"*Results appended to canvas ({len(tool_result)} chars).*\n\n")
                         tool_result = f"(written to canvas, {len(tool_result)} chars)"
 
                     # Send result preview to UI (first 600 chars shown in detail).
