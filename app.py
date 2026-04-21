@@ -1023,7 +1023,6 @@ def agent():
                             yield sse("canvas_append", content=tool_result,
                                       filename=fn, code_lang=code_lang,
                                       header=f"## {tool_name}")
-                        yield sse("token", token=f"*Results appended to canvas ({len(tool_result)} chars).*\n\n")
                         tool_result = f"(written to canvas, {len(tool_result)} chars)"
 
                     # Send result preview to UI (first 600 chars shown in detail).
