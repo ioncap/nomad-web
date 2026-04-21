@@ -937,7 +937,12 @@ def agent():
                         yield sse("token", token=before + "\n\n")
 
                     yield sse("search_status", message=f"Running {tool_name}...")
+                    # Broadcast the call so the UI can render a collapsible detail.
+                    _args_preview = json.dumps(tool_args)[:200] if tool_args else ""
+                    yield sse("tool_call", tool=tool_name, args=_args_preview)
+
                     tool_result = registry.execute(tool_name, tool_args)
+
                     _canvas_tools = {
                         "network_scan":          "network_scan.md",
                         "network_scan_advanced": "network_scan_advanced.md",
@@ -955,6 +960,10 @@ def agent():
                                   filename=_canvas_tools[tool_name])
                         yield sse("token", token="*Results written to canvas.*\n\n")
                         tool_result = f"(written to canvas, {len(tool_result)} chars)"
+
+                    # Send result preview to UI (first 600 chars shown in detail).
+                    yield sse("tool_result", tool=tool_name,
+                              result=tool_result[:600] + ("…" if len(tool_result) > 600 else ""))
 
                     msgs.append({"role": "assistant", "content": response_text})
                     msgs.append({"role": "user",      "content": f"Tool result for {tool_name}:\n{tool_result}"})

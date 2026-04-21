@@ -91,9 +91,14 @@ def agent_run_command(machine, command):
         if machine == "pi":
             result = sp.run(command, shell=True, capture_output=True, text=True, timeout=15)
         else:
-            m       = MACHINE_MAP[machine]
-            ssh_cmd = f"ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 {m['user']}@{m['host']} '{command}'"
-            result  = sp.run(ssh_cmd, shell=True, capture_output=True, text=True, timeout=15)
+            m      = MACHINE_MAP[machine]
+            # Use list form so local shell never parses the command —
+            # single-quoted docker format strings etc. arrive intact.
+            result = sp.run(
+                ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5",
+                 f"{m['user']}@{m['host']}", command],
+                capture_output=True, text=True, timeout=15,
+            )
         output = result.stdout.strip()
         if result.stderr.strip():
             output += "\nSTDERR: " + result.stderr.strip()
@@ -103,10 +108,10 @@ def agent_run_command(machine, command):
 
 
 def agent_network_scan(args=None):
-    """Fast network discovery using ARP cache, arp-scan, nmap, or parallel pings."""
+    """Fast network discovery: ARP cache → arp-scan → nmap → parallel Python pings."""
     import socket
     import subprocess as sp
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from concurrent.futures import ThreadPoolExecutor, wait as fut_wait
     import ipaddress
 
     if args is None:
@@ -117,7 +122,7 @@ def agent_network_scan(args=None):
 
     parts = []
 
-    # 1. ARP cache (instant)
+    # 1. ARP cache (instant, always try)
     try:
         r = sp.run("arp -a", shell=True, capture_output=True, text=True, timeout=5)
         if r.stdout.strip():
@@ -125,11 +130,11 @@ def agent_network_scan(args=None):
     except Exception:
         pass
 
-    # 2. arp-scan — hardware-level, most reliable
+    # 2. arp-scan — hardware-level, most reliable (needs root on some systems)
     try:
-        if sp.run("which arp-scan", shell=True, capture_output=True, text=True, timeout=3).returncode == 0:
-            r = sp.run("arp-scan --localnet 2>/dev/null",
-                       shell=True, capture_output=True, text=True, timeout=15)
+        if sp.run(["which", "arp-scan"], capture_output=True, timeout=3).returncode == 0:
+            r = sp.run(["arp-scan", "--localnet"],
+                       capture_output=True, text=True, timeout=15)
             lines = [l for l in r.stdout.splitlines() if l and l[0].isdigit()]
             if lines:
                 parts.append("arp-scan:\n" + "\n".join(lines))
@@ -137,46 +142,64 @@ def agent_network_scan(args=None):
     except Exception:
         pass
 
-    # 3. nmap ping sweep (fast with --min-rate)
+    # 3. nmap ping sweep (fast with --min-rate, no root needed)
     try:
-        if sp.run("which nmap", shell=True, capture_output=True, text=True, timeout=3).returncode == 0:
+        if sp.run(["which", "nmap"], capture_output=True, timeout=3).returncode == 0:
             r = sp.run(
-                f"nmap -sn --min-rate 200 {subnet} 2>/dev/null | grep -E 'report|MAC'",
-                shell=True, capture_output=True, text=True, timeout=20,
+                ["nmap", "-sn", "--min-rate", "300", subnet],
+                capture_output=True, text=True, timeout=25,
             )
-            if r.stdout.strip():
-                parts.append("nmap ping sweep:\n" + r.stdout.strip())
+            hits = [l for l in r.stdout.splitlines() if "report" in l or "MAC" in l]
+            if hits:
+                parts.append("nmap ping sweep:\n" + "\n".join(hits))
                 return "\n\n".join(parts)
     except Exception:
         pass
 
-    # 4. Pure Python parallel ping sweep (stdlib fallback)
+    # 4. Pure Python parallel ping sweep (stdlib, no external deps)
     try:
         network = ipaddress.ip_network(subnet, strict=False)
         hosts   = [str(h) for h in network.hosts()]
 
+        # Always include known machine IPs so they're never missed
+        for v in MACHINE_MAP.values():
+            h = v["host"]
+            if h not in ("localhost", "127.0.0.1") and h not in hosts:
+                hosts.append(h)
+
         def _ping(host: str):
-            result = sp.run(
-                ["ping", "-c", "1", "-W", str(timeout), host],
-                capture_output=True, timeout=timeout + 2,
-            )
-            if result.returncode != 0:
-                return None
             try:
-                name = socket.gethostbyaddr(host)[0]
-                return f"{host}  ({name})"
+                r = sp.run(
+                    ["ping", "-c", "1", "-W", str(timeout), host],
+                    capture_output=True, timeout=timeout + 2,
+                )
+                if r.returncode != 0:
+                    return None
+                try:
+                    name = socket.gethostbyaddr(host)[0]
+                    return f"{host}  ({name})"
+                except Exception:
+                    return host
             except Exception:
-                return host
+                return None
 
         active = []
         with ThreadPoolExecutor(max_workers=min(workers, len(hosts))) as ex:
-            for fut in as_completed({ex.submit(_ping, h): h for h in hosts}):
-                v = fut.result()
-                if v:
-                    active.append(v)
+            futures = {ex.submit(_ping, h): h for h in hosts}
+            done, _ = fut_wait(futures, timeout=min(workers * (timeout + 2), 30))
+            for fut in done:
+                try:
+                    v = fut.result()
+                    if v:
+                        active.append(v)
+                except Exception:
+                    pass
 
         if active:
-            active.sort(key=lambda s: [int(p) for p in s.split()[0].split(".")])
+            try:
+                active.sort(key=lambda s: [int(p) for p in s.split()[0].split(".")])
+            except Exception:
+                active.sort()
             parts.append(
                 f"Ping sweep ({subnet}, {len(active)}/{len(hosts)} hosts):\n"
                 + "\n".join(f"  {h}" for h in active)
