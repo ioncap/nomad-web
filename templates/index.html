@@ -1057,7 +1057,7 @@ function historyClear(){
   showToast("History cleared");
 }
 
-function loadSuggestedQuestions(){fetch("/suggested-questions").then(function(r){return r.json();}).then(function(d){var qs=d.questions||[];var btns=document.querySelectorAll(".exb");for(var i=0;i<btns.length&&i<qs.length;i++){btns[i].textContent=qs[i];btns[i].classList.remove("exb-loading");btns[i].classList.add("exb-ready");}}).catch(function(){var fb=["How do I create a list in Python?","Explain Docker volumes","How to set up SSH keys?"];var btns=document.querySelectorAll(".exb");for(var i=0;i<btns.length;i++){btns[i].textContent=fb[i]||"";btns[i].classList.remove("exb-loading");btns[i].classList.add("exb-ready");}});}
+function loadSuggestedQuestions(){var CACHE_KEY="nomad_sugg_v1";var CACHE_TTL=24*60*60*1000;function applyQs(qs){var btns=document.querySelectorAll(".exb");for(var i=0;i<btns.length&&i<qs.length;i++){btns[i].textContent=qs[i];btns[i].classList.remove("exb-loading");btns[i].classList.add("exb-ready");}}function fetchFresh(skipCache){fetch("/suggested-questions").then(function(r){return r.json();}).then(function(d){var qs=d.questions||[];if(qs.length<1)return;try{localStorage.setItem(CACHE_KEY,JSON.stringify({q:qs,ts:Date.now()}));}catch(e){}if(skipCache||!skipCache)applyQs(qs);}).catch(function(){});}try{var c=JSON.parse(localStorage.getItem(CACHE_KEY)||"null");if(c&&c.q&&c.q.length>=3&&Date.now()-c.ts<CACHE_TTL){applyQs(c.q);fetchFresh(false);return;}}catch(e){}fetchFresh(true);}
 function init(){initCanvasResize();initCanvasDrop();renderTabs();loadActiveTab();checkH();setInterval(checkH,30000);G.inp.focus();document.getElementById("iw").classList.add("mode-rag");loadSuggestedQuestions();}
 init();
 </script>
