@@ -8,6 +8,8 @@
   var wEl        = document.getElementById('csWriting');
   var statsEl    = document.getElementById('csStats');
   var goalProgEl = document.getElementById('csGoalProgress');
+  var prevEl     = document.getElementById('csPrev');
+  var splitCon   = document.getElementById('csSplitContainer');
 
   // ── Undo/redo history ─────────────────────────────────────────────────────
   var hist = [''], hIdx = 0, pushTimer = null;
@@ -29,9 +31,8 @@
     var t = ta.value;
     var w = t.trim() ? t.trim().split(/\s+/).length : 0;
     if (statsEl) statsEl.textContent = w + ' words · ' + t.length + ' chars';
-    if (csWordGoal > 0 && goalProgEl) {
+    if (csWordGoal > 0 && goalProgEl)
       goalProgEl.style.width = Math.min(100, Math.round(w / csWordGoal * 100)) + '%';
-    }
   }
 
   // ── Line numbers ──────────────────────────────────────────────────────────
@@ -40,6 +41,7 @@
     for (var i = 1; i <= n; i++) h += i + '<br>';
     lnEl.innerHTML = h;
     updateStats();
+    if (csSplitActive) csUpdatePreview();
   }
 
   // ── Language detection ────────────────────────────────────────────────────
@@ -53,6 +55,55 @@
     try { JSON.parse(c); return 'json'; } catch(e) {}
     return 'plaintext';
   }
+
+  // ── Markdown renderer (standalone) ───────────────────────────────────────
+  function csEsc(s) {
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(s));
+    return d.innerHTML;
+  }
+
+  function csRenderMd(t) {
+    if (!t) return '';
+    var h = t;
+    h = h.replace(/```(\w*)\n([\s\S]*?)```/g, function(m, lang, code) {
+      return '<pre><code>' + csEsc(code) + '</code></pre>';
+    });
+    h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    h = h.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    h = h.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+    h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    h = h.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+    var parts = h.split('\n\n');
+    h = parts.map(function(x) {
+      x = x.trim();
+      if (!x) return '';
+      if (x.indexOf('<h') === 0 || x.indexOf('<pre') === 0) return x;
+      return '<p>' + x.replace(/\n/g, '<br>') + '</p>';
+    }).join('');
+    return h;
+  }
+
+  // ── Split view ────────────────────────────────────────────────────────────
+  var csSplitActive = false;
+
+  function csUpdatePreview() {
+    if (prevEl) prevEl.innerHTML = csRenderMd(ta.value);
+  }
+
+  window.csToggleSplit = function() {
+    csSplitActive = !csSplitActive;
+    var btn = document.getElementById('csSplitBtn');
+    if (csSplitActive) {
+      splitCon.className = 'cs-split-container split';
+      if (btn) btn.className = 'cs-btn active';
+      csUpdatePreview();
+    } else {
+      splitCon.className = 'cs-split-container';
+      if (btn) btn.className = 'cs-btn';
+    }
+  };
 
   // ── Sync indicator ────────────────────────────────────────────────────────
   function setSync(state) {
@@ -130,6 +181,7 @@
         case 'canvas_done':
           showWriting(false);
           if (streamBuf) { hist = [ta.value]; hIdx = 0; streamBuf = ''; }
+          if (csSplitActive) csUpdatePreview();
           break;
         case 'canvas_append':
           appendContent(p.content || '', p.header || '', p.code_lang || '', p.filename || '');
@@ -173,7 +225,7 @@
   // ── User edits → broadcast back to main tab ───────────────────────────────
   var editTimer = null;
   ta.addEventListener('input', function() {
-    updateLN();
+    updateLN();   // also calls csUpdatePreview when split active
     histPush();
     clearTimeout(editTimer);
     editTimer = setTimeout(function() { broadcastEdit(); setSync('live'); }, 800);
@@ -200,6 +252,7 @@
       else if (e.key === 'f')                                  { e.preventDefault(); window.csFind(); }
       else if (e.key === 'h')                                  { e.preventDefault(); window.csReplace(); }
       else if (e.key === 's')                                  { e.preventDefault(); window.csDownload(); }
+      else if (e.key === '\\')                                 { e.preventDefault(); window.csToggleSplit(); }
     }
   });
 

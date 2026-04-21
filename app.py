@@ -27,7 +27,7 @@ from config import (
 )
 from modules.canvas import (
     PATCH_SYSTEM, build_canvas_context, canvas_edit_gen, canvas_new_gen,
-    detect_canvas_update, is_canvas_edit_intent, is_code_create_intent,
+    detect_canvas_update, guess_filename, is_canvas_edit_intent, is_code_create_intent,
 )
 from modules.embeddings import get_embedding
 from modules.helpers import HDRS, NO_ANS, get_pi_stats, sse
@@ -946,8 +946,19 @@ def agent():
             return
 
         sys_content = AGENT_SYSTEM
-        if canvas:
-            sys_content += f"\n\nCanvas context (user's open document):\n```\n{canvas[:3000]}\n```"
+        if canvas and canvas.strip():
+            sys_content += (
+                f"\n\n## Canvas context\nThe user has this document open in the canvas editor:\n"
+                f"```\n{canvas.strip()[:3000]}\n```\n"
+                "Reference it when answering questions about it. "
+                "If asked to edit or update it, use [CANVAS_UPDATE filename.ext]...[/CANVAS_UPDATE]."
+            )
+        else:
+            sys_content += (
+                "\n\nNo canvas document is open. "
+                "If your response includes code, write it using "
+                "[CANVAS_UPDATE filename.ext]...[/CANVAS_UPDATE]."
+            )
 
         msgs = [{"role": "system", "content": sys_content}]
         for m in history[-MAX_HISTORY:]:
@@ -1046,8 +1057,17 @@ def agent():
                     yield sse("done")
                     return
             else:
-                for token in response_text.split():
-                    yield sse("token", token=token + " ")
+                # Parse [CANVAS_UPDATE]…[/CANVAS_UPDATE] before streaming to chat
+                chat_text, cv_content, cv_filename = detect_canvas_update(response_text)
+                if cv_content is not None:
+                    fn = cv_filename or guess_filename(cv_content)
+                    if chat_text:
+                        for token in chat_text.split():
+                            yield sse("token", token=token + " ")
+                    yield sse("canvas_content", content=cv_content, filename=fn)
+                else:
+                    for token in response_text.split():
+                        yield sse("token", token=token + " ")
                 yield sse("done")
                 return
 
