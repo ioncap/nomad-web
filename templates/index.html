@@ -414,6 +414,41 @@ header{padding:24px 0 16px;border-bottom:1px solid var(--border2);flex-shrink:0}
 .ext-link:hover{background:var(--accentg);color:var(--t1)}
 @media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:600px){.stats-grid{grid-template-columns:1fr;}}
+/* ── Tool Config Overlay ───────────────────────────────────────────────────── */
+.toolcfg-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:60;overflow-y:auto;display:none}
+.toolcfg-overlay.open{display:block}
+.toolcfg-inner{max-width:1100px;margin:0 auto;padding:32px 24px}
+.toolcfg-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px}
+.toolcfg-title{font-family:"Instrument Serif",serif;font-size:28px;color:var(--t1)}
+.toolcfg-subtitle{font-family:"DM Mono",monospace;font-size:11px;color:var(--t3);margin-top:4px}
+.toolcfg-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+@media(max-width:900px){.toolcfg-grid{grid-template-columns:1fr}}
+.tc-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;transition:opacity var(--tr)}
+.tc-card-disabled{opacity:.55}
+.tc-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.tc-name{font-family:"DM Mono",monospace;font-size:12px;font-weight:500;color:var(--accent);letter-spacing:.04em}
+.tc-desc{font-family:"Source Serif 4",serif;font-size:13px;color:var(--t2);margin-bottom:8px;line-height:1.5}
+.tc-help{background:var(--bg3);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px;white-space:pre-line}
+.tc-help-text{font-family:"Source Serif 4",serif;font-size:12px;color:var(--t2);line-height:1.6}
+.tc-example{font-family:"DM Mono",monospace;font-size:11px;color:var(--accent2);margin-top:6px}
+.tc-help-btn{font-family:"DM Mono",monospace;font-size:10px;color:var(--t3);background:none;border:1px solid var(--border2);padding:3px 10px;border-radius:10px;cursor:pointer;transition:all var(--tr);margin-bottom:10px;display:inline-block}
+.tc-help-btn:hover{color:var(--t2);border-color:var(--t3)}
+.tc-params{border-top:1px solid var(--border2);padding-top:10px;margin-top:4px}
+.tc-param{display:flex;align-items:center;gap:8px;padding:5px 0}
+.tc-param-label{font-family:"DM Mono",monospace;font-size:10px;color:var(--t3);min-width:80px;text-transform:uppercase;flex-shrink:0}
+.tc-param-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--t1);font-family:"DM Mono",monospace;font-size:11px;transition:all var(--tr)}
+.tc-param-input:focus{border-color:var(--accent2);outline:none}
+.tc-param-check{width:14px;height:14px;accent-color:var(--accent);cursor:pointer}
+.tc-param-reset{font-family:"DM Mono",monospace;font-size:10px;color:var(--warn);cursor:pointer;background:none;border:none;padding:0 4px}
+.tc-save-btn{font-family:"DM Mono",monospace;font-size:10px;color:var(--accent);background:none;border:1px solid var(--accent2);padding:4px 12px;border-radius:10px;cursor:pointer;margin-top:8px;display:none;transition:all var(--tr)}
+.tc-save-btn:hover{background:var(--accentg)}
+.tc-toggle{position:relative;display:inline-block;width:32px;height:18px;flex-shrink:0}
+.tc-toggle input{opacity:0;width:0;height:0;position:absolute}
+.tc-toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--bg3);border-radius:10px;border:1px solid var(--border);transition:all var(--tr)}
+.tc-toggle-slider::before{content:"";position:absolute;height:12px;width:12px;left:2px;bottom:2px;background:var(--t3);border-radius:50%;transition:all var(--tr)}
+.tc-toggle input:checked+.tc-toggle-slider{background:var(--accentg);border-color:var(--accent2)}
+.tc-toggle input:checked+.tc-toggle-slider::before{transform:translateX(14px);background:var(--accent)}
+.toolcfg-loading{padding:24px;font-family:"DM Mono",monospace;font-size:12px;color:var(--t3)}
 </style>
 </style>
 </head>
@@ -431,6 +466,7 @@ header{padding:24px 0 16px;border-bottom:1px solid var(--border2);flex-shrink:0}
               <a class="nav-btn" href="/kb/browser">kb</a>
               <button class="nav-btn" onclick="toggleHistory()">history</button>
               <button class="nav-btn" onclick="clearChat()">clear</button>
+              <button class="nav-btn" onclick="toggleToolConfig()">&#9881; tools</button>
               <button class="nav-btn" onclick="toggleStats()">system</button>
             </div>
             <div class="mode-toggle">
@@ -583,6 +619,22 @@ header{padding:24px 0 16px;border-bottom:1px solid var(--border2);flex-shrink:0}
     </div>
     <div class="history-list" id="historyList">
       <div class="history-empty">No saved conversations yet.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tool Config Overlay -->
+<div class="toolcfg-overlay" id="toolcfgPanel">
+  <div class="toolcfg-inner">
+    <div class="toolcfg-header">
+      <div>
+        <div class="toolcfg-title">Tool Settings</div>
+        <div class="toolcfg-subtitle">beheer agent-tools &middot; parameters &middot; aan/uit</div>
+      </div>
+      <button class="stats-close" onclick="toggleToolConfig()">&#10005; close</button>
+    </div>
+    <div class="toolcfg-grid" id="toolcfgGrid">
+      <div class="toolcfg-loading">Loading tools&hellip;</div>
     </div>
   </div>
 </div>
@@ -962,6 +1014,7 @@ function loadSuggestedQuestions(){fetch("/suggested-questions").then(function(r)
 function init(){initCanvasResize();initCanvasDrop();renderTabs();loadActiveTab();checkH();setInterval(checkH,30000);G.inp.focus();document.getElementById("iw").classList.add("mode-rag");loadSuggestedQuestions();}
 init();
 </script>
+<script src="/static/js/tool-config.js"></script>
 <script src="/static/js/kb-browser.js"></script>
 </body>
 </html>

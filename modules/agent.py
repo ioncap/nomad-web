@@ -10,6 +10,7 @@ from qdrant_client import QdrantClient, models
 from config import COLLECTION, NOMAD_HOST, QDRANT_HOST, QDRANT_PORT, STATS_URL, XPS13_HOST
 from modules.embeddings import get_embedding
 from modules.helpers import get_pi_stats
+from modules.tool_registry import ToolRegistry
 
 AGENT_SYSTEM = """You are N.O.M.A.D Agent — direct, efficient, sharp. Complete tasks with minimal words.
 
@@ -101,23 +102,91 @@ def agent_run_command(machine, command):
         return f"Command error: {e}"
 
 
-def agent_network_scan():
+def agent_network_scan(args=None):
+    """Fast network discovery using ARP cache, arp-scan, nmap, or parallel pings."""
+    import socket
     import subprocess as sp
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import ipaddress
 
+    if args is None:
+        args = {}
+    subnet  = args.get("subnet", "192.168.2.0/24")
+    workers = int(args.get("workers", 32))
+    timeout = int(args.get("timeout", 1))
+
+    parts = []
+
+    # 1. ARP cache (instant)
     try:
-        result = sp.run("arp -a", shell=True, capture_output=True, text=True, timeout=10)
-        output = result.stdout.strip()
-        nmap   = sp.run("which nmap", shell=True, capture_output=True, text=True)
-        if nmap.returncode == 0:
-            scan = sp.run(
-                "nmap -sn 192.168.2.0/24 2>/dev/null | grep -E 'scan report|MAC'",
-                shell=True, capture_output=True, text=True, timeout=30,
+        r = sp.run("arp -a", shell=True, capture_output=True, text=True, timeout=5)
+        if r.stdout.strip():
+            parts.append("ARP cache:\n" + r.stdout.strip())
+    except Exception:
+        pass
+
+    # 2. arp-scan — hardware-level, most reliable
+    try:
+        if sp.run("which arp-scan", shell=True, capture_output=True, text=True, timeout=3).returncode == 0:
+            r = sp.run("arp-scan --localnet 2>/dev/null",
+                       shell=True, capture_output=True, text=True, timeout=15)
+            lines = [l for l in r.stdout.splitlines() if l and l[0].isdigit()]
+            if lines:
+                parts.append("arp-scan:\n" + "\n".join(lines))
+                return "\n\n".join(parts)
+    except Exception:
+        pass
+
+    # 3. nmap ping sweep (fast with --min-rate)
+    try:
+        if sp.run("which nmap", shell=True, capture_output=True, text=True, timeout=3).returncode == 0:
+            r = sp.run(
+                f"nmap -sn --min-rate 200 {subnet} 2>/dev/null | grep -E 'report|MAC'",
+                shell=True, capture_output=True, text=True, timeout=20,
             )
-            if scan.stdout.strip():
-                output += "\n\nNmap:\n" + scan.stdout.strip()
-        return output if output else "No devices found"
+            if r.stdout.strip():
+                parts.append("nmap ping sweep:\n" + r.stdout.strip())
+                return "\n\n".join(parts)
+    except Exception:
+        pass
+
+    # 4. Pure Python parallel ping sweep (stdlib fallback)
+    try:
+        network = ipaddress.ip_network(subnet, strict=False)
+        hosts   = [str(h) for h in network.hosts()]
+
+        def _ping(host: str):
+            result = sp.run(
+                ["ping", "-c", "1", "-W", str(timeout), host],
+                capture_output=True, timeout=timeout + 2,
+            )
+            if result.returncode != 0:
+                return None
+            try:
+                name = socket.gethostbyaddr(host)[0]
+                return f"{host}  ({name})"
+            except Exception:
+                return host
+
+        active = []
+        with ThreadPoolExecutor(max_workers=min(workers, len(hosts))) as ex:
+            for fut in as_completed({ex.submit(_ping, h): h for h in hosts}):
+                v = fut.result()
+                if v:
+                    active.append(v)
+
+        if active:
+            active.sort(key=lambda s: [int(p) for p in s.split()[0].split(".")])
+            parts.append(
+                f"Ping sweep ({subnet}, {len(active)}/{len(hosts)} hosts):\n"
+                + "\n".join(f"  {h}" for h in active)
+            )
+        else:
+            parts.append(f"No hosts responded on {subnet}")
     except Exception as e:
-        return f"Scan error: {e}"
+        parts.append(f"Ping sweep error: {e}")
+
+    return "\n\n".join(parts) if parts else "No devices found."
 
 
 def agent_system_status():
@@ -436,64 +505,180 @@ def agent_docker_status(machine="pi"):
     return agent_run_command(machine, cmd)
 
 
-# ── Self-documentation ────────────────────────────────────────────────────────
+# ── Tool Registry ─────────────────────────────────────────────────────────────
 
-_TOOL_CATALOG = [
-    ("search_kb",             '{"query": "..."}',                              "Semantic search in local Qdrant knowledge base"),
-    ("search_web",            '{"query": "..."}',                              "Search via Google News RSS"),
-    ("read_url",              '{"url": "..."}',                                "Fetch and extract text from any URL"),
-    ("run_command",           '{"machine": "pi|desktop|xps13", "command":"…"}', "Run a whitelisted shell command on a machine"),
-    ("save_note",             '{"title": "...", "content": "..."}',            "Save a note to the knowledge base"),
-    ("system_status",         "{}",                                             "Pi + desktop + Qdrant health overview"),
-    ("network_scan",          "{}",                                             "Fast ARP + ping sweep on 192.168.2.0/24"),
-    ("network_scan_advanced", '{"subnet": "192.168.2.0/24"}',                  "Nmap service version scan on subnet"),
-    ("port_scan",             '{"target": "...", "ports": "top1000"}',         "Detailed port + service scan on a specific host"),
-    ("vuln_scan",             '{"target": "..."}',                             "Nmap --script=vuln vulnerability scan on a host"),
-    ("ping_host",             '{"host": "..."}',                               "Ping a host (4 packets, 2s timeout)"),
-    ("kb_cleaner_status",     "{}",                                             "Background KB cleaner: last stats, dry_run flag, interval"),
-    ("kb_cleaner_run",        '{"dry_run": true}',                             "Trigger an immediate KB relevance clean pass"),
-    ("docker_status",         '{"machine": "pi|desktop|xps13"}',               "Show running Docker containers on a machine"),
-    ("weather",               '{"city": "..."}',                               "Current weather + 3-day forecast via Open-Meteo"),
-    ("dutch_temperatures",    "{}",                                             "Live temperatures for 8 Dutch cities"),
-    ("crypto",                "{}",                                             "BTC / ETH / SOL / ADA / DOGE in EUR + USD"),
-    ("exchange_rates",        '{"base": "EUR"}',                               "Exchange rates for major world currencies"),
-    ("public_ip",             "{}",                                             "Public IP address with geolocation"),
-    ("hacker_news",           "{}",                                             "Top 10 Hacker News stories with scores"),
-    ("news_headlines",        "{}",                                             "Latest BBC + Reuters headlines"),
-    ("wikipedia",             '{"query": "..."}',                              "Wikipedia article summary"),
-    ("list_tools",            "{}",                                             "This list — full catalog of available agent tools"),
-]
+registry = ToolRegistry()
+
+def _r(name, func, desc, params=None, help_text="", example=""):
+    registry.register(name, func, desc, params or {}, help_text or desc, example)
 
 
-def agent_list_tools():
+_r("search_kb",
+   lambda a: agent_search_kb(a.get("query", "")),
+   "Semantic search in the local Qdrant knowledge base",
+   help_text="Searches by vector similarity. Best for factual questions about saved topics.",
+   example="zoek in de kennisbank naar Docker volumes")
+
+_r("search_web",
+   lambda a: agent_read_url("https://news.google.com/search?q=" + a.get("query", "").replace(" ", "+")),
+   "Search the web via Google News RSS",
+   help_text="Fetches Google News results. Good for current events and recent tech news.",
+   example="zoek nieuws over Python 3.13")
+
+_r("read_url",
+   lambda a: agent_read_url(a.get("url", "")),
+   "Fetch and extract readable text from any URL",
+   help_text="Retrieves a page and strips HTML tags, scripts and styles. Returns up to 3000 characters.",
+   example="lees de inhoud van https://docs.python.org")
+
+_r("run_command",
+   lambda a: agent_run_command(a.get("machine", "pi"), a.get("command", "")),
+   "Run a whitelisted shell command on a machine via SSH",
+   {"machine": "pi"},
+   help_text=f"Allowed machines: pi, desktop, xps13.  Allowed commands (partial list): {', '.join(SAFE_COMMANDS[:14])}…",
+   example="run df -h op de desktop")
+
+_r("save_note",
+   lambda a: agent_save_note(a.get("title", "Untitled"), a.get("content", "")),
+   "Save a note to the knowledge base",
+   help_text="Embeds and stores a note in Qdrant with source=agent_note. Skips exact duplicates.",
+   example="sla een notitie op over SSH hardening tips")
+
+_r("system_status",
+   lambda a: agent_system_status(),
+   "Pi + desktop + Qdrant health overview",
+   help_text="Returns CPU, memory, disk and service stats for all known machines plus Qdrant vector count.",
+   example="systeemstatus van alle machines")
+
+_r("network_scan",
+   agent_network_scan,
+   "Fast network discovery: ARP cache → arp-scan → nmap → parallel ping",
+   {"subnet": "192.168.2.0/24", "workers": 32, "timeout": 1},
+   help_text=(
+       "Discovers live hosts using progressively slower methods:\n"
+       "1. ARP cache (instant)\n"
+       "2. arp-scan if installed (fast, hardware-level)\n"
+       "3. nmap -sn if installed (~5 s)\n"
+       "4. Pure Python ThreadPoolExecutor ping sweep (stdlib, ~2-5 s)\n\n"
+       "workers = parallel ping threads (default 32).  "
+       "timeout = per-host ping timeout in seconds (default 1)."
+   ),
+   example="scan het lokale netwerk")
+
+_r("network_scan_advanced",
+   lambda a: agent_network_scan_advanced(a.get("subnet", "192.168.2.0/24")),
+   "Nmap service version scan on the whole subnet",
+   {"subnet": "192.168.2.0/24"},
+   help_text="Runs nmap -sV --open. Shows open ports + service versions for every host. Takes 30-90 s.",
+   example="scan het subnet op open services en versies")
+
+_r("port_scan",
+   lambda a: agent_port_scan(a.get("target", ""), a.get("ports", "top1000")),
+   "Detailed port + service scan on one specific host",
+   {"ports": "top1000"},
+   help_text="nmap -sV on a single target. 'ports' can be 'top1000', '1-65535', or '22,80,443'.",
+   example="scan de open poorten op 192.168.2.20")
+
+_r("vuln_scan",
+   lambda a: agent_vuln_scan(a.get("target", "")),
+   "Nmap --script=vuln vulnerability scan on one host",
+   help_text="Runs nmap --script=vuln. Can take 1-3 minutes. Only use on your own devices.",
+   example="voer een vulnerability scan uit op 192.168.2.1")
+
+_r("ping_host",
+   lambda a: agent_ping_host(a.get("host", "")),
+   "Ping a host (4 packets, 2 s timeout each)",
+   help_text="Sends 4 ICMP packets and reports RTT statistics.",
+   example="ping 192.168.2.1")
+
+_r("kb_cleaner_status",
+   lambda a: agent_kb_cleaner_status(),
+   "KB Cleaner agent: running status, dry_run flag, last run statistics",
+   help_text="Shows whether the background relevance cleaner is active, its interval, and stats from the last pass.",
+   example="wat is de status van de KB cleaner?")
+
+_r("kb_cleaner_run",
+   lambda a: agent_kb_cleaner_run(a.get("dry_run", True)),
+   "Trigger an immediate KB relevance clean pass",
+   {"dry_run": True},
+   help_text="dry_run=true only logs what would be deleted.  dry_run=false deletes for real. Returns statistics.",
+   example="voer een KB opschoning uit in dry-run modus")
+
+_r("docker_status",
+   lambda a: agent_docker_status(a.get("machine", "pi")),
+   "Show running Docker containers on a machine",
+   {"machine": "pi"},
+   help_text="Runs 'docker ps' over SSH. machine = pi, desktop, or xps13.",
+   example="welke Docker containers draaien op de desktop?")
+
+_r("weather",
+   lambda a: agent_weather(a.get("city", "Amsterdam")),
+   "Current weather + 3-day forecast via Open-Meteo (no API key)",
+   {"default_city": "Amsterdam"},
+   help_text="Temperature, wind, precipitation and 3-day outlook from Open-Meteo's free API.",
+   example="wat is het weer in Eindhoven?")
+
+_r("dutch_temperatures",
+   lambda a: agent_dutch_temperatures(),
+   "Live temperatures for 8 Dutch cities",
+   help_text="Amsterdam, Rotterdam, Utrecht, Den Haag, Eindhoven, Groningen, Maastricht, Leeuwarden.",
+   example="temperaturen in Nederland")
+
+_r("crypto",
+   lambda a: agent_crypto_prices(),
+   "BTC / ETH / SOL / ADA / DOGE prices in EUR and USD",
+   help_text="Live prices + 24 h change from CoinGecko's free API.",
+   example="wat zijn de actuele crypto-koersen?")
+
+_r("exchange_rates",
+   lambda a: agent_exchange_rates(a.get("base", "EUR")),
+   "Exchange rates for major currencies",
+   {"base": "EUR"},
+   help_text="Fetches rates from open.er-api.com. 'base' can be any ISO 4217 code (EUR, USD, GBP, …).",
+   example="wisselkoersen voor EUR naar USD")
+
+_r("public_ip",
+   lambda a: agent_public_ip(),
+   "Public IP address with geolocation info",
+   help_text="Uses ipinfo.io to get public IP, city, region, country and ISP.",
+   example="wat is mijn publieke IP-adres?")
+
+_r("hacker_news",
+   lambda a: agent_hacker_news(),
+   "Top 10 Hacker News stories with scores and URLs",
+   help_text="Fetches top stories via the official HN Firebase API.",
+   example="top Hacker News verhalen van vandaag")
+
+_r("news_headlines",
+   lambda a: agent_news_headlines(),
+   "Latest BBC + Reuters headlines via RSS",
+   help_text="Parses the BBC World and Reuters RSS feeds for the 10 most recent headlines.",
+   example="laatste nieuws van BBC en Reuters")
+
+_r("wikipedia",
+   lambda a: agent_wikipedia(a.get("query", "")),
+   "Wikipedia article summary (English)",
+   help_text="Fetches the article extract. Falls back to a search result list if the exact title isn't found.",
+   example="wikipedia artikel over containerisatie")
+
+_r("list_tools",
+   lambda a: agent_list_tools(),
+   "Full catalog of all available agent tools",
+   help_text="Returns name, description and enabled/disabled status for every registered tool.",
+   example="wat kun je allemaal?")
+
+
+def agent_list_tools() -> str:
+    tools = registry.list_tools()
     lines = ["N.O.M.A.D Agent — available tools:\n"]
-    for name, args, desc in _TOOL_CATALOG:
-        lines.append(f"  {name:<22}  {args:<44}  {desc}")
+    for t in tools:
+        status = "" if t["enabled"] else "  [DISABLED]"
+        lines.append(f"  {t['name']:<24}  {t['description']}{status}")
     return "\n".join(lines)
 
 
+# Backward-compat shim — code that still uses AGENT_TOOLS dict keeps working.
 AGENT_TOOLS = {
-    "search_kb":             lambda args: agent_search_kb(args.get("query", "")),
-    "search_web":            lambda args: agent_read_url(f"https://news.google.com/search?q={args.get('query', '').replace(' ', '+')}"),
-    "run_command":           lambda args: agent_run_command(args.get("machine", "pi"), args.get("command", "")),
-    "network_scan":          lambda args: agent_network_scan(),
-    "network_scan_advanced": lambda args: agent_network_scan_advanced(args.get("subnet", "192.168.2.0/24")),
-    "port_scan":             lambda args: agent_port_scan(args.get("target", ""), args.get("ports", "top1000")),
-    "vuln_scan":             lambda args: agent_vuln_scan(args.get("target", "")),
-    "ping_host":             lambda args: agent_ping_host(args.get("host", "")),
-    "system_status":         lambda args: agent_system_status(),
-    "read_url":              lambda args: agent_read_url(args.get("url", "")),
-    "save_note":             lambda args: agent_save_note(args.get("title", "Untitled"), args.get("content", "")),
-    "kb_cleaner_status":     lambda args: agent_kb_cleaner_status(),
-    "kb_cleaner_run":        lambda args: agent_kb_cleaner_run(args.get("dry_run", True)),
-    "docker_status":         lambda args: agent_docker_status(args.get("machine", "pi")),
-    "weather":               lambda args: agent_weather(args.get("city", "Amsterdam")),
-    "dutch_temperatures":    lambda args: agent_dutch_temperatures(),
-    "crypto":                lambda args: agent_crypto_prices(),
-    "public_ip":             lambda args: agent_public_ip(),
-    "hacker_news":           lambda args: agent_hacker_news(),
-    "wikipedia":             lambda args: agent_wikipedia(args.get("query", "")),
-    "exchange_rates":        lambda args: agent_exchange_rates(args.get("base", "EUR")),
-    "news_headlines":        lambda args: agent_news_headlines(),
-    "list_tools":            lambda args: agent_list_tools(),
+    n: (lambda n: lambda a: registry.execute(n, a))(n)
+    for n in registry._tools
 }
